@@ -8,4 +8,4 @@ A GUI edition of the OSINT tool maigret, Full info can be [found here](https://g
 
     python3 -m venv venv && source /venv/bin/activate && pip3 install PyQt6
 
-![image](https://github.com/user-attachments/assets/204a820f-8f29-4926-b850-7b675fc2c53c)
+![image](./img/2025-12-15_00-06.png)
