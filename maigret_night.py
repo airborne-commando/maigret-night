@@ -2,6 +2,8 @@ import sys
 import subprocess
 import json
 import os
+import re
+import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QCheckBox, 
                              QGroupBox, QFormLayout, QSpinBox, QComboBox, QTabWidget, 
@@ -41,20 +43,27 @@ class MaigretWorker(QThread):
 class CrowWorker(QThread):
     output_signal = pyqtSignal(str)
     finished_signal = pyqtSignal()
+    ai_file_saved = pyqtSignal(str)  # Signal when AI file is saved
     
-    def __init__(self, command, needs_ai_confirmation=False, is_setup_ai=False, tor_spoofer=None):
+    def __init__(self, command, needs_ai_confirmation=False, is_setup_ai=False, tor_spoofer=None, username="", email=""):
         super().__init__()
         self.command = command
         self.process = None
         self.needs_ai_confirmation = needs_ai_confirmation
         self.is_setup_ai = is_setup_ai
         self.tor_spoofer = tor_spoofer
+        self.username = username
+        self.email = email
+        
+        # AI analysis state
+        self.ai_results_started = False
+        self.ai_results_buffer = []
     
     def run(self):
         if self.tor_spoofer and self.tor_spoofer.tor_enabled:
             os.environ["BLACKBIRD_USE_TOR"] = "1"
             os.environ["TOR_PORT"] = str(self.tor_spoofer.tor_port)
-            
+        
         self.process = subprocess.Popen(
             self.command, 
             stdout=subprocess.PIPE, 
@@ -74,28 +83,143 @@ class CrowWorker(QThread):
                 self.output_signal.emit("✓ Sent confirmation for API key setup")
             except Exception as e:
                 self.output_signal.emit(f"Setup confirmation error: {e}")
-        elif self.needs_ai_confirmation:
-            confirmation_sent = False
-            for line in self.process.stdout:
-                text = line.strip()
-                self.output_signal.emit(text)
-                
-                if not confirmation_sent and ('analyzing with ai' in text.lower() or 'consent' in text.lower()):
-                    try:
-                        self.process.stdin.write('Y\n')
-                        self.process.stdin.flush()
-                        confirmation_sent = True
-                        self.output_signal.emit("✓ Automatically confirmed AI analysis")
-                    except Exception as e:
-                        self.output_signal.emit(f"AI confirmation error: {e}")
-            return
         
+        # Process output line by line
+        confirmation_sent = False
         for line in self.process.stdout:
-            self.output_signal.emit(line.strip())
+            text = line.rstrip()  # Keep original formatting
+            
+            # Handle AI confirmation if needed
+            if (self.needs_ai_confirmation and not confirmation_sent and 
+                ('analyzing with ai' in text.lower() or 'consent' in text.lower())):
+                try:
+                    self.process.stdin.write('Y\n')
+                    self.process.stdin.flush()
+                    confirmation_sent = True
+                    self.output_signal.emit("✓ Automatically confirmed AI analysis")
+                except Exception as e:
+                    self.output_signal.emit(f"AI confirmation error: {e}")
+            
+            # Process AI analysis output (similar to crow.py logic)
+            self.process_ai_output(text)
+            
+            # Emit formatted text to GUI
+            formatted_text = self.format_ai_text_for_gui(text)
+            self.output_signal.emit(formatted_text)
+        
+        # Save any remaining AI results
+        if self.ai_results_started:
+            self.auto_save_ai_results()
         
         self.process.stdout.close()
         self.process.wait()
+    
+    def process_ai_output(self, text):
+        """Process AI analysis output similar to crow.py"""
+        # Check if AI analysis is starting
+        if 'analyzing with ai' in text.lower() or '✨ analyzing with ai' in text.lower():
+            self.ai_results_started = True
+            self.ai_results_buffer = [
+                "🤖 BLACKBIRD AI ANALYSIS REPORT",
+                "=" * 60,
+                f"Generated: {self.get_current_timestamp()}",
+                "=" * 60,
+                ""
+            ]
+            
+            # Add search context
+            if self.username:
+                self.ai_results_buffer.append(f"Target Username: {self.username}")
+            if self.email:
+                self.ai_results_buffer.append(f"Target Email: {self.email}")
+            if self.username or self.email:
+                self.ai_results_buffer.append("")
+        
+        # Buffer AI results
+        if self.ai_results_started:
+            # Clean and format the text for file output
+            clean_text = text.replace('🤖', '').replace('📊', '').strip()
+            if clean_text:  # Only add non-empty lines
+                self.ai_results_buffer.append(clean_text)
+            
+            # Check if AI analysis is complete
+            if 'ai queries left' in text.lower() or 'analysis complete' in text.lower():
+                self.ai_results_buffer.extend([
+                    "",
+                    "=" * 60,
+                    f"Analysis complete - {self.get_current_timestamp()}",
+                    "=" * 60
+                ])
+                self.auto_save_ai_results()
+                self.ai_results_started = False
+    
+    def format_ai_text_for_gui(self, text):
+        """Format AI text for GUI display with emojis (from crow.py)"""
+        if any(keyword in text.lower() for keyword in ['analyzing with ai', 'ai queries left', '✨']):
+            return f"🤖 {text}"
+        elif text.startswith('[Summary]'):
+            return f"📋 {text}"
+        elif text.startswith('[Profile Type]'):
+            return f"🎯 {text}"
+        elif text.startswith('[Insights]'):
+            return f"💡 {text}"
+        elif text.startswith('[Risk Flags]'):
+            return f"⚠️  {text}"
+        elif text.startswith('[Tags]'):
+            return f"🏷️  {text}"
+        else:
+            return text
+    
+    def get_current_timestamp(self):
+        """Get current timestamp for file naming and reports"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def auto_save_ai_results(self):
+        """Automatically save AI results to file (from crow.py)"""
+        if not self.ai_results_buffer:
+            return
+        
+        try:
+            import re
+            import os
+            from datetime import datetime
+            
+            # Generate filename with timestamp and target info
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create descriptive filename
+            if self.username:
+                base_name = self.username
+            elif self.email:
+                base_name = self.email.split('@')[0]
+            else:
+                base_name = "analysis"
 
+            # Clean filename
+            safe_name = re.sub(r'[^\w\-_.]', '_', base_name)
+            filename = f"blackbird_ai_{safe_name}_{timestamp}.txt"
+
+            # Directory path where you want to save the file
+            directory_path = "results"
+
+            # Create directory if it doesn't exist
+            if not os.path.exists(directory_path):
+                os.makedirs(directory_path)
+
+            # Full file path with directory
+            full_path = os.path.join(directory_path, filename)
+
+            # Save to file
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(self.ai_results_buffer))
+            
+            # Emit signal that file was saved
+            self.ai_file_saved.emit(full_path)
+            
+        except Exception as e:
+            self.output_signal.emit(f"❌ Error auto-saving AI results: {e}")
+    
     def terminate(self):
         if self.process:
             self.process.terminate()
@@ -385,6 +509,10 @@ class MaigretGUI(QMainWindow):
         # Clear output area
         self.output_area.clear()
         
+        # Get username and email for AI analysis
+        username = self.crow_username_input.text().strip()
+        email = self.crow_email_input.text().strip()
+        
         # Check if AI is enabled but no API key
         if self.crow_ai_checkbox.isChecked():
             if not self.check_crow_ai_api_key():
@@ -400,100 +528,100 @@ class MaigretGUI(QMainWindow):
         # ================================================================
         # BREACH.VIP USERNAME SEARCH HOOK
         # ================================================================
-        if self.crow_breach_username_checkbox.isChecked() and self.crow_username_input.text().strip():
+        if self.crow_breach_username_checkbox.isChecked() and username:
             self.output_area.append("\n" + "=" * 60)
             self.output_area.append("🔍 BREACH.VIP USERNAME SEARCH HOOK")
             self.output_area.append("=" * 60)
             
-            text = self.crow_username_input.text().strip()
-            
-            if text.startswith("file:"):
-                file_path = text[5:]
+            if username.startswith("file:"):
+                file_path = username[5:]
                 if os.path.exists(file_path):
                     self.output_area.append(f"Searching Breach.vip for usernames from file: {os.path.basename(file_path)}")
                     process_username_file(file_path, self.output_area)
                 else:
                     self.output_area.append(f"❌ File not found: {file_path}")
             else:
-                usernames = [u.strip() for u in text.split(',') if u.strip()]
+                usernames = [u.strip() for u in username.split(',') if u.strip()]
                 if len(usernames) == 1:
                     self.output_area.append(f"Searching Breach.vip for username: {usernames[0]}")
                     process_single_username(usernames[0], self.output_area)
                 else:
                     self.output_area.append(f"Searching Breach.vip for {len(usernames)} usernames")
-                    for username in usernames:
-                        self.output_area.append(f"  • Processing: {username}")
-                        process_single_username(username, self.output_area)
+                    for username_item in usernames:
+                        self.output_area.append(f"  • Processing: {username_item}")
+                        process_single_username(username_item, self.output_area)
             
             self.output_area.append("=" * 60 + "\n")
 
         # ================================================================
         # BREACH.VIP EMAIL SEARCH HOOK
         # ================================================================
-        if self.crow_breach_email_checkbox.isChecked() and self.crow_email_input.text().strip():
+        if self.crow_breach_email_checkbox.isChecked() and email:
             self.output_area.append("\n" + "=" * 60)
             self.output_area.append("📧 BREACH.VIP EMAIL SEARCH HOOK")
             self.output_area.append("=" * 60)
             
-            text = self.crow_email_input.text().strip()
-            
-            if text.startswith("file:"):
-                file_path = text[5:]
+            if email.startswith("file:"):
+                file_path = email[5:]
                 if os.path.exists(file_path):
                     self.output_area.append(f"Searching Breach.vip for emails from file: {os.path.basename(file_path)}")
                     process_email_file(file_path, self.output_area)
                 else:
                     self.output_area.append(f"❌ File not found: {file_path}")
             else:
-                emails = [e.strip() for e in text.split(',') if e.strip()]
+                emails = [e.strip() for e in email.split(',') if e.strip()]
                 if len(emails) == 1:
                     self.output_area.append(f"Searching Breach.vip for email: {emails[0]}")
                     process_single_email(emails[0], self.output_area)
                 else:
                     self.output_area.append(f"Searching Breach.vip for {len(emails)} emails")
-                    for email in emails:
-                        self.output_area.append(f"  • Processing: {email}")
-                        process_single_email(email, self.output_area)
+                    for email_item in emails:
+                        self.output_area.append(f"  • Processing: {email_item}")
+                        process_single_email(email_item, self.output_area)
             
             self.output_area.append("=" * 60 + "\n")
         
         # Build Blackbird command
         try:
             command = build_blackbird_command(
-                username_input=self.crow_username_input.text(),
-                email_input=self.crow_email_input.text(),
+                username_input=username,
+                email_input=email,
                 username_file_input="",
                 email_file_input="",
                 permute_checkbox=self.crow_permute_checkbox.isChecked(),
-                permuteall_checkbox=False,  # Not in Crow UI
+                permuteall_checkbox=False,
                 AI_checkbox=self.crow_ai_checkbox.isChecked(),
                 no_nsfw_checkbox=self.crow_no_nsfw_checkbox.isChecked(),
-                no_update_checkbox=False,  # Not in Crow UI
+                no_update_checkbox=False,
                 csv_checkbox=self.crow_csv_checkbox.isChecked(),
                 pdf_checkbox=self.crow_pdf_checkbox.isChecked(),
                 json_checkbox=self.crow_json_checkbox.isChecked(),
                 verbose_checkbox=self.crow_verbose_checkbox.isChecked(),
                 dump_checkbox=self.crow_dump_checkbox.isChecked(),
-                proxy_input="",  # Not in Crow UI
-                timeout_spinbox=30,  # Default timeout
+                proxy_input="",
+                timeout_spinbox=30,
                 filter_input=self.crow_filter_input.text(),
-                instagram_session_id=""  # Not in Crow UI
+                instagram_session_id=""
             )
             
             # Show AI info if enabled
             if self.crow_ai_checkbox.isChecked():
                 self.output_area.append("🤖 AI Analysis Enabled")
-                self.output_area.append("Note: This will analyze results using Blackbird AI")
+                self.output_area.append("Note: AI analysis will be automatically saved to text file")
                 self.output_area.append("")
             
-            # Run the command
+            # Create and start the worker
             self.crow_worker = CrowWorker(
                 " ".join(command), 
                 needs_ai_confirmation=self.crow_ai_checkbox.isChecked(),
-                tor_spoofer=self.crow_tor_spoofer if self.crow_tor_checkbox.isChecked() else None
+                is_setup_ai=False,
+                tor_spoofer=self.crow_tor_spoofer if self.crow_tor_checkbox.isChecked() else None,
+                username=username.split('file:')[0] if username.startswith('file:') else username,
+                email=email.split('file:')[0] if email.startswith('file:') else email
             )
             self.crow_worker.output_signal.connect(self.update_crow_output)
             self.crow_worker.finished_signal.connect(self.on_crow_search_finished)
+            self.crow_worker.ai_file_saved.connect(self.on_ai_file_saved)
             self.crow_worker.start()
             
             self.crow_run_btn.setEnabled(False)
@@ -501,6 +629,29 @@ class MaigretGUI(QMainWindow):
             
         except Exception as e:
             self.output_area.append(f"❌ Error building command: {e}")
+
+    def on_ai_file_saved(self, file_path):
+        """Handle when AI analysis file is saved"""
+        self.output_area.append(f"💾 AI results saved to: {file_path}")
+        
+        # Optional: Ask if user wants to open the file
+        reply = QMessageBox.question(
+            self,
+            "AI Analysis Saved",
+            f"AI analysis has been saved to:\n{file_path}\n\nWould you like to open it?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if sys.platform == "win32":
+                    os.startfile(file_path)
+                elif sys.platform == "darwin":
+                    subprocess.run(["open", file_path])
+                else:
+                    subprocess.run(["xdg-open", file_path])
+            except Exception as e:
+                self.output_area.append(f"⚠️ Could not open file: {e}")
 
     def check_crow_ai_api_key(self):
         """Check if AI API key is available for Crow"""
