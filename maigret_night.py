@@ -72,9 +72,12 @@ class MaigretGUI(QMainWindow):
 
     def save_settings_dialog(self):
         # Open a save file dialog
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Settings", "", "JSON Files (*.json);;All Files (*)")
-
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Settings", "", "JSON Files (*.json)")
+        
         if file_path:
+            # Ensure the file has a .json extension
+            if not file_path.lower().endswith('.json'):
+                file_path += '.json'
             self.save_settings(file_path)
 
     def save_settings(self, file_path):
@@ -85,7 +88,6 @@ class MaigretGUI(QMainWindow):
             'max_connections': self.max_connections_spinbox.value(),
             'no_recursion': self.no_recursion_checkbox.isChecked(),
             'no_extracting': self.no_extracting_checkbox.isChecked(),
-            'id_type': self.id_type_combobox.currentText(),
             'permute': self.permute_checkbox.isChecked(),
             'proxy': self.proxy_input.text(),
             'tor_proxy': self.tor_proxy_input.text(),
@@ -120,7 +122,7 @@ class MaigretGUI(QMainWindow):
 
     def load_settings_dialog(self):
         # Open a file dialog to load settings
-        file_path, _ = QFileDialog.getOpenFileName(self, "Load Settings", "", "JSON Files (*.json);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load Settings", "", "JSON Files (*.json)")
 
         if file_path:
             self.load_settings(file_path)
@@ -136,7 +138,6 @@ class MaigretGUI(QMainWindow):
             self.max_connections_spinbox.setValue(settings.get('max_connections', 10))
             self.no_recursion_checkbox.setChecked(settings.get('no_recursion', False))
             self.no_extracting_checkbox.setChecked(settings.get('no_extracting', False))
-            self.id_type_combobox.setCurrentText(settings.get('id_type', 'username'))
             self.permute_checkbox.setChecked(settings.get('permute', False))
             self.proxy_input.setText(settings.get('proxy', ''))
             self.tor_proxy_input.setText(settings.get('tor_proxy', ''))
@@ -248,12 +249,6 @@ class MaigretGUI(QMainWindow):
 
         # Enable/Disable report sorting input based on checkbox state
         self.report_sorting_checkbox.toggled.connect(self.toggle_report_sorting_input)
-
-        # ID type combobox
-        self.id_type_combobox = QComboBox()
-        self.id_type_combobox.addItems(["username", "email", "phone", "profile", "location"])
-        options_layout.addWidget(QLabel("ID Type:"))
-        options_layout.addWidget(self.id_type_combobox)
 
         # Add Top Sites checkbox
         self.top_sites_checkbox = QCheckBox("Enable Top Sites")
@@ -428,7 +423,6 @@ class MaigretGUI(QMainWindow):
             command += " --no-recursion"
         if self.no_extracting_checkbox.isChecked():
             command += " --no-extracting"
-        command += f" --id-type {self.id_type_combobox.currentText()}"
         if self.permute_checkbox.isChecked():
             command += " --permute"
         if self.proxy_input.text():
