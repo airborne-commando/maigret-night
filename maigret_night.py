@@ -48,8 +48,8 @@ class MaigretGUI(QMainWindow):
 
         # Create tabs for different sections
         self.create_options_tab(tab_widget)
-        self.create_proxy_tab(tab_widget)
-        self.create_output_tab(tab_widget)
+        # self.create_proxy_tab(tab_widget)
+        # self.create_output_tab(tab_widget)
 
         # Buttons and output area
         self.create_buttons(layout)
@@ -270,12 +270,50 @@ class MaigretGUI(QMainWindow):
         # Enable/Disable top sites count input based on checkbox state
         self.top_sites_checkbox.toggled.connect(self.toggle_top_sites_input)
 
-        # Tags input
-        self.tags_input = QLineEdit()
-        options_layout.addWidget(QLabel("Tags (comma-separated):"))
-        options_layout.addWidget(self.tags_input)
+        # Create a horizontal layout for Tags and Proxy inputs
+        proxy_layout_horizontal = QHBoxLayout()
 
-        # Site input
+        # Tags input (first column)
+        tags_widget = QWidget()
+        tags_sub_layout = QVBoxLayout()
+        tags_sub_layout.addWidget(QLabel("Tags (comma-separated):"))
+        self.tags_input = QLineEdit()
+        tags_sub_layout.addWidget(self.tags_input)
+        tags_widget.setLayout(tags_sub_layout)
+        proxy_layout_horizontal.addWidget(tags_widget)
+
+        # Proxy URL input (second column)
+        proxy_widget = QWidget()
+        proxy_sub_layout = QVBoxLayout()
+        proxy_sub_layout.addWidget(QLabel("Proxy URL:"))
+        self.proxy_input = QLineEdit()
+        self.proxy_input.setPlaceholderText("e.g., socks5://127.0.0.1:1080")
+        proxy_sub_layout.addWidget(self.proxy_input)
+        proxy_widget.setLayout(proxy_sub_layout)
+        proxy_layout_horizontal.addWidget(proxy_widget)
+
+        # Tor Proxy input (third column)
+        tor_proxy_widget = QWidget()
+        tor_proxy_sub_layout = QVBoxLayout()
+        tor_proxy_sub_layout.addWidget(QLabel("Tor Proxy URL:"))
+        self.tor_proxy_input = QLineEdit()
+        tor_proxy_sub_layout.addWidget(self.tor_proxy_input)
+        tor_proxy_widget.setLayout(tor_proxy_sub_layout)
+        proxy_layout_horizontal.addWidget(tor_proxy_widget)
+
+        # I2P Proxy input (fourth column)
+        i2p_proxy_widget = QWidget()
+        i2p_proxy_sub_layout = QVBoxLayout()
+        i2p_proxy_sub_layout.addWidget(QLabel("I2P Proxy URL:"))
+        self.i2p_proxy_input = QLineEdit()
+        i2p_proxy_sub_layout.addWidget(self.i2p_proxy_input)
+        i2p_proxy_widget.setLayout(i2p_proxy_sub_layout)
+        proxy_layout_horizontal.addWidget(i2p_proxy_widget)
+
+        # Add the horizontal layout to the main options layout
+        options_layout.addLayout(proxy_layout_horizontal)
+
+        # Site input (below them)
         self.site_input = QLineEdit()
         options_layout.addWidget(QLabel("Site URL:"))
         options_layout.addWidget(self.site_input)
@@ -312,6 +350,19 @@ class MaigretGUI(QMainWindow):
         self.debug_checkbox = QCheckBox("Debug (-vvv, -d)")
         additional_checkbox_layout.addWidget(self.debug_checkbox)
 
+        # Also add the output format checkboxes to the SAME horizontal layout
+        self.csv_checkbox = QCheckBox("CSV")
+        additional_checkbox_layout.addWidget(self.csv_checkbox)
+
+        self.pdf_checkbox = QCheckBox("PDF")
+        additional_checkbox_layout.addWidget(self.pdf_checkbox)
+
+        self.txt_checkbox = QCheckBox("TXT")
+        additional_checkbox_layout.addWidget(self.txt_checkbox)
+
+        self.html_checkbox = QCheckBox("HTML")
+        additional_checkbox_layout.addWidget(self.html_checkbox)
+
         # Add the horizontal layout of additional checkboxes to the main layout
         options_layout.addLayout(additional_checkbox_layout)
 
@@ -326,40 +377,24 @@ class MaigretGUI(QMainWindow):
         # Enable or disable the report sorting input based on checkbox
         self.report_sorting_combobox.setEnabled(self.report_sorting_checkbox.isChecked())
 
-    def create_proxy_tab(self, tab_widget):
-        proxy_group = QWidget()
-        proxy_layout = QVBoxLayout()
+    # def create_proxy_tab(self, tab_widget):
+    #     proxy_group = QWidget()
+    #     proxy_layout = QVBoxLayout()
 
-        self.proxy_input = QLineEdit()
-        proxy_layout.addWidget(QLabel("Proxy URL (e.g., socks5://127.0.0.1:1080):"))
-        proxy_layout.addWidget(self.proxy_input)
+    #     self.proxy_input = QLineEdit()
+    #     proxy_layout.addWidget(QLabel("Proxy URL (e.g., socks5://127.0.0.1:1080):"))
+    #     proxy_layout.addWidget(self.proxy_input)
 
-        self.tor_proxy_input = QLineEdit()
-        proxy_layout.addWidget(QLabel("Tor Proxy URL:"))
-        proxy_layout.addWidget(self.tor_proxy_input)
+    #     self.tor_proxy_input = QLineEdit()
+    #     proxy_layout.addWidget(QLabel("Tor Proxy URL:"))
+    #     proxy_layout.addWidget(self.tor_proxy_input)
 
-        self.i2p_proxy_input = QLineEdit()
-        proxy_layout.addWidget(QLabel("I2P Proxy URL:"))
-        proxy_layout.addWidget(self.i2p_proxy_input)
+    #     self.i2p_proxy_input = QLineEdit()
+    #     proxy_layout.addWidget(QLabel("I2P Proxy URL:"))
+    #     proxy_layout.addWidget(self.i2p_proxy_input)
 
-        proxy_group.setLayout(proxy_layout)
-        tab_widget.addTab(proxy_group, "Proxy")
-
-    def create_output_tab(self, tab_widget):
-        output_group = QWidget()
-        output_layout = QHBoxLayout()
-
-        self.csv_checkbox = QCheckBox("CSV")
-        self.pdf_checkbox = QCheckBox("PDF")
-        self.txt_checkbox = QCheckBox("TXT")
-        self.html_checkbox = QCheckBox("HTML")
-        output_layout.addWidget(self.csv_checkbox)
-        output_layout.addWidget(self.pdf_checkbox)
-        output_layout.addWidget(self.txt_checkbox)
-        output_layout.addWidget(self.html_checkbox)
-
-        output_group.setLayout(output_layout)
-        tab_widget.addTab(output_group, "Output")
+    #     proxy_group.setLayout(proxy_layout)
+    #     tab_widget.addTab(proxy_group, "Proxy")
 
     def create_buttons(self, layout):
         button_layout = QHBoxLayout()
