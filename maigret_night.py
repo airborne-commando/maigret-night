@@ -60,9 +60,20 @@ class CrowWorker(QThread):
         self.ai_results_buffer = []
     
     def run(self):
+        # Set up TOR environment at the beginning
         if self.tor_spoofer and self.tor_spoofer.tor_enabled:
+            # Set comprehensive proxy environment
+            proxy_url = f"socks5://127.0.0.1:{self.tor_spoofer.tor_port}"
+            os.environ["HTTP_PROXY"] = proxy_url
+            os.environ["HTTPS_PROXY"] = proxy_url
+            os.environ["ALL_PROXY"] = proxy_url
             os.environ["BLACKBIRD_USE_TOR"] = "1"
             os.environ["TOR_PORT"] = str(self.tor_spoofer.tor_port)
+            
+            # Clear SSL verification warnings
+            os.environ["PYTHONHTTPSVERIFY"] = "0"
+            import ssl
+            ssl._create_default_https_context = ssl._create_unverified_context
         
         self.process = subprocess.Popen(
             self.command, 
@@ -113,7 +124,7 @@ class CrowWorker(QThread):
         
         self.process.stdout.close()
         self.process.wait()
-    
+
     def process_ai_output(self, text):
         """Process AI analysis output similar to crow.py"""
         # Check if AI analysis is starting
@@ -259,6 +270,38 @@ class MaigretGUI(QMainWindow):
     # CROW TAB METHODS
     # ================================================================
 
+    def verify_tor_connection(self):
+        """Verify TOR connection status"""
+        if not self.crow_tor_spoofer:
+            return False
+        
+        try:
+            import requests
+            
+            # Test connection through TOR
+            proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
+            proxies = {
+                'http': proxy_url,
+                'https': proxy_url
+            }
+            
+            # Try to access a TOR check service
+            response = requests.get("https://check.torproject.org/api/ip", 
+                                   proxies=proxies, 
+                                   timeout=10)
+            
+            data = response.json()
+            if data.get('IsTor', False):
+                self.output_area.append("✅ TOR connection verified and masking active")
+                return True
+            else:
+                self.output_area.append("⚠️  Connected but not using TOR exit node")
+                return False
+                
+        except Exception as e:
+            self.output_area.append(f"❌ TOR connection test failed: {e}")
+            return False
+
     def select_crow_username_file(self):
         """Select username file for Crow search"""
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Username File")
@@ -272,30 +315,145 @@ class MaigretGUI(QMainWindow):
             self.crow_email_input.setText(f"file:{file_name}")
 
     def setup_crow_ai_api_key(self):
-        """Setup AI API key for Crow"""
+        """Setup AI API key for Crow with proper TOR masking"""
         self.output_area.clear()
         self.output_area.append("🔧 Starting API Key setup for Crow...")
         
+        # Delete existing API key for fresh registration
+        self.delete_crow_api_key()
+        
         # Check if TOR is enabled
         if self.crow_tor_checkbox.isChecked():
-            self.output_area.append("🕶️  TOR enabled - setting up anonymous registration")
+            self.output_area.append("🕶️  TOR enabled - ensuring anonymous registration...")
             
             # Initialize TOR spoofer if not already done
             if not self.crow_tor_spoofer:
                 self.crow_tor_spoofer = TORSpoofer(self)
             
-            # Try to enable TOR
+            # Test TOR connection first
             if not self.crow_tor_spoofer.enable_tor_for_ai():
-                self.output_area.append("❌ TOR setup failed. Trying direct connection...")
-                self.setup_crow_ai_direct()
-            else:
-                # Delete existing API key for fresh TOR registration
-                self.delete_crow_api_key()
-                self.output_area.append("✅ TOR enabled. Proceeding with setup...")
-                self.run_crow_setup_ai()
+                self.output_area.append("❌ TOR connection failed. Retrying...")
+                
+                # Try to restart TOR service
+                if not self.restart_tor_service():
+                    self.output_area.append("❌ TOR setup failed. Using fallback method...")
+                    self.setup_with_proxychains()
+                    return
+                else:
+                    self.output_area.append("✅ TOR restarted successfully")
+            
+            # Set environment variables for TOR proxying
+            os.environ["BLACKBIRD_USE_TOR"] = "1"
+            os.environ["TOR_PORT"] = str(self.crow_tor_spoofer.tor_port)
+            
+            # Set HTTP/HTTPS proxy environment variables for all connections
+            proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
+            os.environ["HTTP_PROXY"] = proxy_url
+            os.environ["HTTPS_PROXY"] = proxy_url
+            os.environ["ALL_PROXY"] = proxy_url
+            
+            # Also set for Python requests/urllib
+            os.environ["REQUESTS_CA_BUNDLE"] = ""
+            
+            self.output_area.append(f"✅ TOR proxy configured: {proxy_url}")
+            self.output_area.append("🔒 TOR masking active for API registration")
+            
+            # Verify TOR IP
+            if not self.verify_tor_ip():
+                self.output_area.append("⚠️  TOR IP verification failed, but proceeding...")
         else:
             self.output_area.append("🔗 Setting up direct connection (TOR not enabled)")
-            self.setup_crow_ai_direct()
+            # Clear any proxy environment variables
+            self.clear_proxy_env_vars()
+        
+        # Run the setup
+        self.run_crow_setup_ai()
+
+    def clear_proxy_env_vars(self):
+        """Clear proxy environment variables"""
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "BLACKBIRD_USE_TOR", "TOR_PORT"]:
+            if var in os.environ:
+                del os.environ[var]
+
+    def verify_tor_ip(self):
+        """Verify that TOR is masking the IP address"""
+        try:
+            import requests
+            
+            # Use requests with TOR proxy if enabled
+            proxies = None
+            if self.crow_tor_spoofer and self.crow_tor_spoofer.tor_enabled:
+                proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
+                proxies = {
+                    'http': proxy_url,
+                    'https': proxy_url
+                }
+            
+            response = requests.get("https://api.ipify.org?format=json", 
+                                   proxies=proxies, 
+                                   timeout=10)
+            ip_data = response.json()
+            
+            # Get original IP for comparison
+            original_response = requests.get("https://api.ipify.org?format=json", timeout=10)
+            original_ip = original_response.json()['ip']
+            
+            tor_ip = ip_data['ip']
+            
+            if tor_ip != original_ip:
+                self.output_area.append(f"✅ TOR IP verified: {tor_ip}")
+                self.output_area.append(f"   Original IP: {original_ip}")
+                return True
+            else:
+                self.output_area.append(f"⚠️  TOR IP same as original: {tor_ip}")
+                return False
+                
+        except Exception as e:
+            self.output_area.append(f"⚠️  Could not verify TOR IP: {e}")
+            return False
+
+    def restart_tor_service(self):
+        """Attempt to restart TOR service"""
+        try:
+            import subprocess
+            
+            # Try to restart TOR service (platform specific)
+            if sys.platform == "win32":
+                subprocess.run(["net", "stop", "tor"], capture_output=True)
+                subprocess.run(["net", "start", "tor"], capture_output=True)
+            else:
+                subprocess.run(["sudo", "systemctl", "restart", "tor"], capture_output=True)
+            
+            # Wait a moment for TOR to restart
+            import time
+            time.sleep(3)
+            
+            return True
+        except Exception as e:
+            self.output_area.append(f"⚠️  Could not restart TOR: {e}")
+            return False
+
+    def setup_with_proxychains(self):
+        """Alternative setup using proxychains"""
+        self.output_area.append("🔄 Attempting setup with proxychains...")
+        
+        try:
+            # Try to use proxychains if available
+            command = ["proxychains", "python", "blackbird.py", "--setup-ai"]
+            
+            self.crow_worker = CrowWorker(" ".join(command), is_setup_ai=True)
+            self.crow_worker.output_signal.connect(self.update_crow_output)
+            self.crow_worker.finished_signal.connect(self.on_crow_setup_finished)
+            self.crow_worker.start()
+            
+            self.crow_run_btn.setEnabled(False)
+            self.crow_stop_btn.setEnabled(True)
+            
+        except Exception as e:
+            self.output_area.append(f"❌ Proxychains method failed: {e}")
+            self.output_area.append("🔄 Falling back to direct connection...")
+            self.clear_proxy_env_vars()
+            self.run_crow_setup_ai()
 
     def delete_crow_api_key(self):
         """Delete existing API key file for fresh registration"""
@@ -510,8 +668,8 @@ class MaigretGUI(QMainWindow):
         self.output_area.clear()
         
         # Get username and email for AI analysis
-        username = self.crow_username_input.text().strip()
-        email = self.crow_email_input.text().strip()
+        username = self.crow_username_input.text().strip()  # ADD THIS LINE
+        email = self.crow_email_input.text().strip()        # ADD THIS LINE
         
         # Check if AI is enabled but no API key
         if self.crow_ai_checkbox.isChecked():
@@ -522,8 +680,16 @@ class MaigretGUI(QMainWindow):
         if self.crow_tor_checkbox.isChecked():
             if not self.crow_tor_spoofer:
                 self.crow_tor_spoofer = TORSpoofer(self)
-            if not self.crow_tor_spoofer.enable_tor_for_ai():
-                self.output_area.append("⚠️  TOR setup failed, continuing without TOR")
+            
+            # Set TOR environment variables
+            proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
+            os.environ["HTTP_PROXY"] = proxy_url
+            os.environ["HTTPS_PROXY"] = proxy_url
+            os.environ["ALL_PROXY"] = proxy_url
+            
+            # Verify TOR is working
+            if not self.verify_tor_connection():
+                self.output_area.append("⚠️  TOR verification failed, but proceeding...")
         
         # ================================================================
         # BREACH.VIP USERNAME SEARCH HOOK
@@ -723,11 +889,11 @@ class MaigretGUI(QMainWindow):
     def create_save_load_actions(self, layout):
         save_load_layout = QHBoxLayout()
 
-        self.save_button = QPushButton("Save Settings")
+        self.save_button = QPushButton("Save Maigret Settings")
         self.save_button.clicked.connect(self.save_settings_dialog)
         save_load_layout.addWidget(self.save_button)
 
-        self.load_button = QPushButton("Load Settings")
+        self.load_button = QPushButton("Load Maigret Settings")
         self.load_button.clicked.connect(self.load_settings_dialog)
         save_load_layout.addWidget(self.load_button)
 
@@ -1011,6 +1177,9 @@ class MaigretGUI(QMainWindow):
 
         self.txt_checkbox = QCheckBox("TXT")
         additional_checkbox_layout.addWidget(self.txt_checkbox)
+
+        self.G_checkbox = QCheckBox("G")
+        additional_checkbox_layout.addWidget(self.G_checkbox)
 
         self.html_checkbox = QCheckBox("HTML")
         additional_checkbox_layout.addWidget(self.html_checkbox)
@@ -1305,6 +1474,8 @@ class MaigretGUI(QMainWindow):
             command += " --pdf"
         if self.txt_checkbox.isChecked():
             command += " --txt"
+        if self.G_checkbox.isChecked():
+            command += " --graph"
         if self.html_checkbox.isChecked():
             command += " --html"
         
