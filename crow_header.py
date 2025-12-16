@@ -1,0 +1,190 @@
+# ================================================================
+# CROW (Blackbird Integration) Section - MODULAR VERSION
+# ================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                            QLineEdit, QPushButton, QCheckBox, QGroupBox, 
+                            QFileDialog)
+from PyQt6.QtCore import Qt
+
+def create_crow_tab(tab_widget, parent):
+    """Create the Crow tab modularly"""
+    crow_group = QWidget()
+    crow_layout = QVBoxLayout()
+
+    # Header label
+    crow_header = QLabel("🦅 CROW - Blackbird OSINT Integration")
+    crow_header.setStyleSheet("font-weight: bold; font-size: 14px; margin: 10px;")
+    crow_layout.addWidget(crow_header)
+    crow_layout.addSpacing(10)
+
+    # Input section
+    input_group = QGroupBox("Search Parameters")
+    input_layout = QVBoxLayout()
+
+    # Username input
+    username_layout = QHBoxLayout()
+    username_layout.addWidget(QLabel("Username(s):"))
+    parent.crow_username_input = QLineEdit()
+    parent.crow_username_input.setPlaceholderText("Enter username(s) or 'file:path/to/file.txt'")
+    username_layout.addWidget(parent.crow_username_input)
+
+    # Username file button
+    username_file_btn = QPushButton("📁")
+    username_file_btn.setToolTip("Select username file")
+    username_file_btn.clicked.connect(parent.select_crow_username_file)
+    username_file_btn.setFixedWidth(40)
+    username_layout.addWidget(username_file_btn)
+    parent.crow_breach_username_checkbox = QCheckBox("Search usernames on Breach.vip")
+    username_layout.addWidget(parent.crow_breach_username_checkbox)
+
+    input_layout.addLayout(username_layout)
+
+    # Email input
+    email_layout = QHBoxLayout()
+    email_layout.addWidget(QLabel("Email(s):"))
+    parent.crow_email_input = QLineEdit()
+    parent.crow_email_input.setPlaceholderText("Enter email(s) or 'file:path/to/file.txt'")
+    email_layout.addWidget(parent.crow_email_input)
+
+    # Email file button
+    email_file_btn = QPushButton("📁")
+    email_file_btn.setToolTip("Select email file")
+    email_file_btn.clicked.connect(parent.select_crow_email_file)
+    email_file_btn.setFixedWidth(40)
+    email_layout.addWidget(email_file_btn)
+    parent.crow_breach_email_checkbox = QCheckBox("Search emails on Breach.vip")
+    email_layout.addWidget(parent.crow_breach_email_checkbox)
+
+    input_layout.addLayout(email_layout)
+
+    input_group.setLayout(input_layout)
+    crow_layout.addWidget(input_group)
+
+    crow_layout.addSpacing(10)
+
+    # Options section
+    options_group = QGroupBox("Options")
+    options_layout = QVBoxLayout()
+
+    # AI Analysis
+    ai_layout = QHBoxLayout()
+    parent.crow_ai_checkbox = QCheckBox("AI Metadata Extraction")
+    ai_layout.addWidget(parent.crow_ai_checkbox)
+
+    # AI Setup button
+    parent.crow_ai_setup_btn = QPushButton("Setup AI Key")
+    parent.crow_ai_setup_btn.clicked.connect(parent.setup_crow_ai_api_key)
+    ai_layout.addWidget(parent.crow_ai_setup_btn)
+
+    options_layout.addLayout(ai_layout)
+
+    # TOR Spoofing
+    tor_layout = QHBoxLayout()
+    parent.crow_tor_checkbox = QCheckBox("Use TOR for AI requests")
+    tor_layout.addWidget(parent.crow_tor_checkbox)
+
+    # TOR Settings button
+    parent.crow_tor_settings_btn = QPushButton("TOR Settings")
+    parent.crow_tor_settings_btn.clicked.connect(parent.configure_crow_tor_settings)
+    tor_layout.addWidget(parent.crow_tor_settings_btn)
+
+    options_layout.addLayout(tor_layout)
+
+    # Additional options in a grid
+    options_grid = QHBoxLayout()
+
+    # Left column
+    left_col = QVBoxLayout()
+    parent.crow_permute_checkbox = QCheckBox("Permute username")
+    left_col.addWidget(parent.crow_permute_checkbox)
+
+    parent.crow_no_nsfw_checkbox = QCheckBox("Exclude NSFW sites")
+    left_col.addWidget(parent.crow_no_nsfw_checkbox)
+
+    # Right column
+    right_col = QVBoxLayout()
+    parent.crow_verbose_checkbox = QCheckBox("Verbose logging")
+    right_col.addWidget(parent.crow_verbose_checkbox)
+
+    options_grid.addLayout(left_col)
+    options_grid.addSpacing(20)
+    options_grid.addLayout(right_col)
+
+    options_layout.addLayout(options_grid)
+
+    # Filter input
+    filter_layout = QHBoxLayout()
+    filter_layout.addWidget(QLabel("Filter:"))
+    parent.crow_filter_input = QLineEdit()
+    parent.crow_filter_input.setPlaceholderText("e.g., name~twitter or cat=social")
+    filter_layout.addWidget(parent.crow_filter_input)
+
+    # Filter help button
+    filter_help_btn = QPushButton("?")
+    filter_help_btn.setFixedSize(30, 30)
+    filter_help_btn.clicked.connect(parent.show_crow_filter_help)
+    filter_layout.addWidget(filter_help_btn)
+
+    options_layout.addLayout(filter_layout)
+
+    options_group.setLayout(options_layout)
+    crow_layout.addWidget(options_group)
+
+    crow_layout.addSpacing(10)
+
+    # Output options
+    output_group = QGroupBox("Output Options")
+    output_layout = QHBoxLayout()
+
+    parent.crow_csv_checkbox = QCheckBox("CSV output")
+    parent.crow_pdf_checkbox = QCheckBox("PDF")
+    parent.crow_json_checkbox = QCheckBox("JSON")
+    parent.crow_dump_checkbox = QCheckBox("Dump HTML")
+
+    output_layout.addWidget(parent.crow_csv_checkbox)
+    output_layout.addWidget(parent.crow_pdf_checkbox)
+    output_layout.addWidget(parent.crow_json_checkbox)
+    output_layout.addWidget(parent.crow_dump_checkbox)
+
+    output_group.setLayout(output_layout)
+    crow_layout.addWidget(output_group)
+
+    crow_layout.addSpacing(10)
+
+    # Action buttons
+    button_layout = QHBoxLayout()
+
+    # Save/Load buttons
+    parent.crow_save_btn = QPushButton("💾 Save")
+    parent.crow_save_btn.clicked.connect(parent.save_crow_settings)
+    button_layout.addWidget(parent.crow_save_btn)
+
+    parent.crow_load_btn = QPushButton("📂 Load")
+    parent.crow_load_btn.clicked.connect(parent.load_crow_settings)
+    button_layout.addWidget(parent.crow_load_btn)
+
+    button_layout.addStretch()
+
+    # Run/Stop buttons
+    parent.crow_run_btn = QPushButton("▶ Run Crow")
+    parent.crow_run_btn.clicked.connect(parent.run_crow_search)
+    parent.crow_run_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white;")
+    button_layout.addWidget(parent.crow_run_btn)
+
+    parent.crow_stop_btn = QPushButton("⏹ Stop")
+    parent.crow_stop_btn.clicked.connect(parent.stop_crow_search)
+    parent.crow_stop_btn.setEnabled(False)
+    parent.crow_stop_btn.setStyleSheet("background-color: #f44336; color: white;")
+    button_layout.addWidget(parent.crow_stop_btn)
+
+    crow_layout.addLayout(button_layout)
+
+    crow_layout.addSpacing(10)
+
+    crow_layout.addStretch()
+
+    crow_group.setLayout(crow_layout)
+    tab_widget.addTab(crow_group, "🦅 Crow")
+    
+    return crow_group
