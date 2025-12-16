@@ -11,4 +11,12 @@ A GUI edition of the OSINT tool maigret, Full info can be [found here](https://g
 ![image](./img/2025-12-15_00-06.png)
 
 
-For blackbird you'll need to install it inside this dir and it'll work.
+For blackbird (crow) you'll need to install it (git clone) inside this dir and it'll work.
+
+For crow:
+
+```
+pip install -r requirements_GUI.txt && pip install -r requirements.txt
+```
+
+Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird)
