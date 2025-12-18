@@ -4,10 +4,6 @@ A GUI edition of the OSINT tool maigret, Full info can be [found here](https://g
 
     python -m venv venv && pip3 install maigret
 
-Or if you're daring:
-
-    python -m venv ~/.local/bin/venv && pip3 install maigret
-
 # Install
 
     python3 -m venv venv && source /venv/bin/activate && pip3 install PyQt6

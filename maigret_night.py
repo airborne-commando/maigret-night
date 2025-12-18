@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #!~/.local/bin/venv/bin/activate python3
 import sys
 import subprocess
