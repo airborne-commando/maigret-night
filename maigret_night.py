@@ -11,100 +11,29 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QFileDialog, QMessageBox, QDialog, QDialogButtonBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-# Import Blackbird modules
-from workers import CrowWorker
-from tor_spoofing import TORSpoofer
-from breach_vip import process_single_email, process_email_file, is_enabled as is_breach_email_enabled
-from breach_vip_username import process_single_username, process_username_file, is_enabled as is_breach_username_enabled
-from crow_header import create_crow_tab
-from crow_tabs import CrowTabMethods
-
-# Worker class that handles executing the Maigret command in a separate thread
-
-class MaigretWebWorker(QThread):
-    output_signal = pyqtSignal(str)
-    finished_signal = pyqtSignal()
-    
-    def __init__(self, port="5000"):
-        super().__init__()
-        self.port = port
-        self.process = None
-        
-    def run(self):
-        self.process = subprocess.Popen(
-            f"maigret --web {self.port}",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            shell=True
-        )
-        for line in self.process.stdout:
-            self.output_signal.emit(line.strip())
-        self.process.wait()
-        self.finished_signal.emit()
-        
-    def terminate(self):
-        if self.process:
-            self.process.terminate()
-            self.process.wait()
-
-class MaigretWorker(QThread):
-    output_signal = pyqtSignal(str)
-    finished_signal = pyqtSignal()
-    
-    def __init__(self, command, auto_confirm_self_check=False):
-        super().__init__()
-        self.command = command
-        self.process = None
-        self.auto_confirm_self_check = auto_confirm_self_check
-
-    def run(self):
-        # Start process
-        self.process = subprocess.Popen(
-            self.command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.PIPE,
-            text=True,
-            bufsize=1
-        )
-        
-        # If auto-confirm is enabled, send 'y' immediately
-        # This works because Maigret will read stdin when it needs it
-        if self.auto_confirm_self_check:
-            self.process.stdin.write('y\n')
-            self.process.stdin.flush()
-        
-        # Read output
-        for line in self.process.stdout:
-            cleaned_line = line.strip()
-            # Clean ANSI escape sequences
-            import re
-            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-            cleaned_line = ansi_escape.sub('', cleaned_line)
-            
-            if cleaned_line:
-                self.output_signal.emit(cleaned_line)
-                
-                # Log that we auto-responded if we see the prompt
-                if "Do you want to save changes permanently?" in cleaned_line:
-                    if self.auto_confirm_self_check:
-                        self.output_signal.emit("✓ Already auto-responded 'y'")
-        
-        self.process.wait()
-        self.finished_signal.emit()
+# Import from modular directory
+from maigret_mods.workers import CrowWorker, MaigretWorker, MaigretWebWorker
+from maigret_mods.tor_spoofing import TORSpoofer
+from maigret_mods.crow_header import create_crow_tab
+from maigret_mods.crow_tabs import CrowTabMethods
+from maigret_mods.breach_vip import process_single_email, process_email_file
+from maigret_mods.breach_vip_username import process_single_username, process_username_file
+from maigret_mods.command_builder import build_blackbird_command
 
 class MaigretGUI(QMainWindow, CrowTabMethods):
     def __init__(self):
         super().__init__()
+        # Initialize the parent classes
+        QMainWindow.__init__(self)
+        CrowTabMethods.__init__(self)
+        
         self.setWindowTitle("Maigret Night")
         self.setGeometry(100, 100, 1200, 800)
         self.maigret_worker = None
         self.crow_worker = None
         self.crow_tor_spoofer = None
         self.crow_ai_api_key = None
-        self.maigret_web_worker = None  # Add this line
+        self.maigret_web_worker = None
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -126,6 +55,140 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
 
         # Add Save and Load actions
         self.create_save_load_actions(layout)
+
+    def run_crow_search(self):
+        """Run the Crow (Blackbird) search"""
+        # Clear output area
+        self.output_area.clear()
+        
+        # Get username and email for AI analysis
+        username = self.crow_username_input.text().strip()
+        email = self.crow_email_input.text().strip()
+        
+        # Check if AI is enabled but no API key
+        if self.crow_ai_checkbox.isChecked():
+            if not self.check_crow_ai_api_key():
+                return
+        
+        # Initialize TOR if enabled
+        if self.crow_tor_checkbox.isChecked():
+            if not self.crow_tor_spoofer:
+                self.crow_tor_spoofer = TORSpoofer(self)
+            
+            # Set TOR environment variables
+            proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
+            os.environ["HTTP_PROXY"] = proxy_url
+            os.environ["HTTPS_PROXY"] = proxy_url
+            os.environ["ALL_PROXY"] = proxy_url
+            
+            # Verify TOR is working
+            if not self.verify_tor_connection():
+                self.output_area.append("⚠️  TOR verification failed, but proceeding...")
+        
+        # ================================================================
+        # BREACH.VIP USERNAME SEARCH HOOK
+        # ================================================================
+        if self.crow_breach_username_checkbox.isChecked() and username:
+            self.output_area.append("\n" + "=" * 60)
+            self.output_area.append("🔍 BREACH.VIP USERNAME SEARCH HOOK")
+            self.output_area.append("=" * 60)
+            
+            if username.startswith("file:"):
+                file_path = username[5:]
+                if os.path.exists(file_path):
+                    self.output_area.append(f"Searching Breach.vip for usernames from file: {os.path.basename(file_path)}")
+                    process_username_file(file_path, self.output_area)
+                else:
+                    self.output_area.append(f"❌ File not found: {file_path}")
+            else:
+                usernames = [u.strip() for u in username.split(',') if u.strip()]
+                if len(usernames) == 1:
+                    self.output_area.append(f"Searching Breach.vip for username: {usernames[0]}")
+                    process_single_username(usernames[0], self.output_area)
+                else:
+                    self.output_area.append(f"Searching Breach.vip for {len(usernames)} usernames")
+                    for username_item in usernames:
+                        self.output_area.append(f"  • Processing: {username_item}")
+                        process_single_username(username_item, self.output_area)
+            
+            self.output_area.append("=" * 60 + "\n")
+
+        # ================================================================
+        # BREACH.VIP EMAIL SEARCH HOOK
+        # ================================================================
+        if self.crow_breach_email_checkbox.isChecked() and email:
+            self.output_area.append("\n" + "=" * 60)
+            self.output_area.append("📧 BREACH.VIP EMAIL SEARCH HOOK")
+            self.output_area.append("=" * 60)
+            
+            if email.startswith("file:"):
+                file_path = email[5:]
+                if os.path.exists(file_path):
+                    self.output_area.append(f"Searching Breach.vip for emails from file: {os.path.basename(file_path)}")
+                    process_email_file(file_path, self.output_area)
+                else:
+                    self.output_area.append(f"❌ File not found: {file_path}")
+            else:
+                emails = [e.strip() for e in email.split(',') if e.strip()]
+                if len(emails) == 1:
+                    self.output_area.append(f"Searching Breach.vip for email: {emails[0]}")
+                    process_single_email(emails[0], self.output_area)
+                else:
+                    self.output_area.append(f"Searching Breach.vip for {len(emails)} emails")
+                    for email_item in emails:
+                        self.output_area.append(f"  • Processing: {email_item}")
+                        process_single_email(email_item, self.output_area)
+            
+            self.output_area.append("=" * 60 + "\n")
+        
+        # Build Blackbird command
+        try:
+            command = build_blackbird_command(
+                username_input=username,
+                email_input=email,
+                username_file_input="",
+                email_file_input="",
+                permute_checkbox=self.crow_permute_checkbox.isChecked(),
+                permuteall_checkbox=False,
+                AI_checkbox=self.crow_ai_checkbox.isChecked(),
+                no_nsfw_checkbox=self.crow_no_nsfw_checkbox.isChecked(),
+                no_update_checkbox=False,
+                csv_checkbox=self.crow_csv_checkbox.isChecked(),
+                pdf_checkbox=self.crow_pdf_checkbox.isChecked(),
+                json_checkbox=self.crow_json_checkbox.isChecked(),
+                verbose_checkbox=self.crow_verbose_checkbox.isChecked(),
+                dump_checkbox=self.crow_dump_checkbox.isChecked(),
+                proxy_input="",
+                timeout_spinbox=30,
+                filter_input=self.crow_filter_input.text(),
+                instagram_session_id=""
+            )
+            
+            # Show AI info if enabled
+            if self.crow_ai_checkbox.isChecked():
+                self.output_area.append("🤖 AI Analysis Enabled")
+                self.output_area.append("Note: AI analysis will be automatically saved to text file")
+                self.output_area.append("")
+            
+            # Create and start the worker
+            self.crow_worker = CrowWorker(
+                " ".join(command), 
+                needs_ai_confirmation=self.crow_ai_checkbox.isChecked(),
+                is_setup_ai=False,
+                tor_spoofer=self.crow_tor_spoofer if self.crow_tor_checkbox.isChecked() else None,
+                username=username.split('file:')[0] if username.startswith('file:') else username,
+                email=email.split('file:')[0] if email.startswith('file:') else email
+            )
+            self.crow_worker.output_signal.connect(self.update_crow_output)
+            self.crow_worker.finished_signal.connect(self.on_crow_search_finished)
+            self.crow_worker.ai_file_saved.connect(self.on_ai_file_saved)
+            self.crow_worker.start()
+            
+            self.crow_run_btn.setEnabled(False)
+            self.crow_stop_btn.setEnabled(True)
+            
+        except Exception as e:
+            self.output_area.append(f"❌ Error building command: {e}")
 
     def create_save_load_actions(self, layout):
         save_load_layout = QHBoxLayout()
@@ -518,9 +581,29 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         if self.maigret_web_worker and self.maigret_web_worker.isRunning():
             # Stop web interface
             self.stop_web_interface()
+            self.run_button.setEnabled(True)
         else:
+            # TERMINATE EXISTING MAIGRET WORKER IF RUNNING
+            if self.maigret_worker and self.maigret_worker.isRunning():
+                self.output_area.append("⚠️  Stopping existing Maigret search to start web interface...")
+                self.maigret_worker.terminate()
+                self.maigret_worker = None
+                # Also update button states
+                self.run_button.setEnabled(False)  # Keep run disabled
+                self.stop_button.setEnabled(False)  # Disable stop button
+            
+            # TERMINATE EXISTING CROW WORKER IF RUNNING
+            if self.crow_worker and self.crow_worker.isRunning():
+                self.output_area.append("⚠️  Stopping existing Crow search to start web interface...")
+                self.crow_worker.terminate()
+                self.crow_worker = None
+                # Also update Crow button states
+                self.crow_run_btn.setEnabled(True)  # Re-enable Crow run
+                self.crow_stop_btn.setEnabled(False)  # Disable Crow stop
+            
             # Start web interface
             self.start_web_interface()
+            self.run_button.setEnabled(False)  # Disable run button since web is running
 
     def start_web_interface(self):
         """Start the Maigret web interface"""
@@ -571,6 +654,9 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
             self.web_button.setText("Start Web Interface")
             self.web_port_input.setEnabled(True)
             self.output_area.append("Web interface stopped.")
+            
+            # RE-ENABLE THE RUN BUTTON WHEN WEB INTERFACE STOPS
+            self.run_button.setEnabled(True)
 
     def on_web_interface_finished(self):
         """Called when web interface process finishes"""
@@ -583,6 +669,18 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         self.output_area.append(f"[Web Interface] {text}")
 
     def run_maigret(self):
+        """Run the Maigret search"""
+        
+        # STOP WEB INTERFACE IF RUNNING
+        if self.maigret_web_worker and self.maigret_web_worker.isRunning():
+            self.output_area.append("⚠️  Stopping web interface to run Maigret search...")
+            self.stop_web_interface()
+        
+        # STOP CROW WORKER IF RUNNING
+        if self.crow_worker and self.crow_worker.isRunning():
+            self.output_area.append("⚠️  Stopping Crow search to run Maigret...")
+            self.stop_crow_search()
+        
         self.output_area.clear()
 
         command = f"maigret {self.username_input.text()}"
@@ -688,6 +786,8 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
 
         self.run_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+
+# Finished process
 
     def on_maigret_finished(self):
         self.stop_button.setEnabled(False)

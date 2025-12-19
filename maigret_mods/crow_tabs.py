@@ -1,9 +1,7 @@
-from workers import CrowWorker
-from tor_spoofing import TORSpoofer
-from breach_vip import process_single_email, process_email_file
-from breach_vip_username import process_single_username, process_username_file
-# Add this import
-from build_blackbird_command import build_blackbird_command
+# crow_tabs.py - Updated with relative imports
+from .workers import CrowWorker
+from .tor_spoofing import TORSpoofer
+from .command_builder import build_blackbird_command
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLineEdit, 
                             QLabel, QDialogButtonBox, QMessageBox, QFileDialog)
 import json
@@ -19,6 +17,9 @@ class CrowTabMethods:
         self.crow_worker = None
         self.crow_tor_spoofer = None
         self.crow_ai_api_key = None
+    
+    # Note: The breach functions (process_single_email, process_single_username, etc.)
+    # will be passed in from the main file, so we don't need to import them here
 
     # ================================================================
     # CROW TAB METHODS
@@ -416,139 +417,8 @@ class CrowTabMethods:
             except Exception as e:
                 self.output_area.append(f"❌ Error loading settings: {e}")
 
-    def run_crow_search(self):
-        """Run the Crow (Blackbird) search"""
-        # Clear output area
-        self.output_area.clear()
-        
-        # Get username and email for AI analysis
-        username = self.crow_username_input.text().strip()  # ADD THIS LINE
-        email = self.crow_email_input.text().strip()        # ADD THIS LINE
-        
-        # Check if AI is enabled but no API key
-        if self.crow_ai_checkbox.isChecked():
-            if not self.check_crow_ai_api_key():
-                return
-        
-        # Initialize TOR if enabled
-        if self.crow_tor_checkbox.isChecked():
-            if not self.crow_tor_spoofer:
-                self.crow_tor_spoofer = TORSpoofer(self)
-            
-            # Set TOR environment variables
-            proxy_url = f"socks5://127.0.0.1:{self.crow_tor_spoofer.tor_port}"
-            os.environ["HTTP_PROXY"] = proxy_url
-            os.environ["HTTPS_PROXY"] = proxy_url
-            os.environ["ALL_PROXY"] = proxy_url
-            
-            # Verify TOR is working
-            if not self.verify_tor_connection():
-                self.output_area.append("⚠️  TOR verification failed, but proceeding...")
-        
-        # ================================================================
-        # BREACH.VIP USERNAME SEARCH HOOK
-        # ================================================================
-        if self.crow_breach_username_checkbox.isChecked() and username:
-            self.output_area.append("\n" + "=" * 60)
-            self.output_area.append("🔍 BREACH.VIP USERNAME SEARCH HOOK")
-            self.output_area.append("=" * 60)
-            
-            if username.startswith("file:"):
-                file_path = username[5:]
-                if os.path.exists(file_path):
-                    self.output_area.append(f"Searching Breach.vip for usernames from file: {os.path.basename(file_path)}")
-                    process_username_file(file_path, self.output_area)
-                else:
-                    self.output_area.append(f"❌ File not found: {file_path}")
-            else:
-                usernames = [u.strip() for u in username.split(',') if u.strip()]
-                if len(usernames) == 1:
-                    self.output_area.append(f"Searching Breach.vip for username: {usernames[0]}")
-                    process_single_username(usernames[0], self.output_area)
-                else:
-                    self.output_area.append(f"Searching Breach.vip for {len(usernames)} usernames")
-                    for username_item in usernames:
-                        self.output_area.append(f"  • Processing: {username_item}")
-                        process_single_username(username_item, self.output_area)
-            
-            self.output_area.append("=" * 60 + "\n")
-
-        # ================================================================
-        # BREACH.VIP EMAIL SEARCH HOOK
-        # ================================================================
-        if self.crow_breach_email_checkbox.isChecked() and email:
-            self.output_area.append("\n" + "=" * 60)
-            self.output_area.append("📧 BREACH.VIP EMAIL SEARCH HOOK")
-            self.output_area.append("=" * 60)
-            
-            if email.startswith("file:"):
-                file_path = email[5:]
-                if os.path.exists(file_path):
-                    self.output_area.append(f"Searching Breach.vip for emails from file: {os.path.basename(file_path)}")
-                    process_email_file(file_path, self.output_area)
-                else:
-                    self.output_area.append(f"❌ File not found: {file_path}")
-            else:
-                emails = [e.strip() for e in email.split(',') if e.strip()]
-                if len(emails) == 1:
-                    self.output_area.append(f"Searching Breach.vip for email: {emails[0]}")
-                    process_single_email(emails[0], self.output_area)
-                else:
-                    self.output_area.append(f"Searching Breach.vip for {len(emails)} emails")
-                    for email_item in emails:
-                        self.output_area.append(f"  • Processing: {email_item}")
-                        process_single_email(email_item, self.output_area)
-            
-            self.output_area.append("=" * 60 + "\n")
-        
-        # Build Blackbird command
-        try:
-            command = build_blackbird_command(
-                username_input=username,
-                email_input=email,
-                username_file_input="",
-                email_file_input="",
-                permute_checkbox=self.crow_permute_checkbox.isChecked(),
-                permuteall_checkbox=False,
-                AI_checkbox=self.crow_ai_checkbox.isChecked(),
-                no_nsfw_checkbox=self.crow_no_nsfw_checkbox.isChecked(),
-                no_update_checkbox=False,
-                csv_checkbox=self.crow_csv_checkbox.isChecked(),
-                pdf_checkbox=self.crow_pdf_checkbox.isChecked(),
-                json_checkbox=self.crow_json_checkbox.isChecked(),
-                verbose_checkbox=self.crow_verbose_checkbox.isChecked(),
-                dump_checkbox=self.crow_dump_checkbox.isChecked(),
-                proxy_input="",
-                timeout_spinbox=30,
-                filter_input=self.crow_filter_input.text(),
-                instagram_session_id=""
-            )
-            
-            # Show AI info if enabled
-            if self.crow_ai_checkbox.isChecked():
-                self.output_area.append("🤖 AI Analysis Enabled")
-                self.output_area.append("Note: AI analysis will be automatically saved to text file")
-                self.output_area.append("")
-            
-            # Create and start the worker
-            self.crow_worker = CrowWorker(
-                " ".join(command), 
-                needs_ai_confirmation=self.crow_ai_checkbox.isChecked(),
-                is_setup_ai=False,
-                tor_spoofer=self.crow_tor_spoofer if self.crow_tor_checkbox.isChecked() else None,
-                username=username.split('file:')[0] if username.startswith('file:') else username,
-                email=email.split('file:')[0] if email.startswith('file:') else email
-            )
-            self.crow_worker.output_signal.connect(self.update_crow_output)
-            self.crow_worker.finished_signal.connect(self.on_crow_search_finished)
-            self.crow_worker.ai_file_saved.connect(self.on_ai_file_saved)
-            self.crow_worker.start()
-            
-            self.crow_run_btn.setEnabled(False)
-            self.crow_stop_btn.setEnabled(True)
-            
-        except Exception as e:
-            self.output_area.append(f"❌ Error building command: {e}")
+    # This method needs to be updated in the main file, not here
+    # The breach functions will be called from the main file
 
     def on_ai_file_saved(self, file_path):
         """Handle when AI analysis file is saved"""
