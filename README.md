@@ -1,6 +1,6 @@
 # maigret night
 
-A GUI edition of the OSINT tool maigret, Full info can be [found here](https://github.com/soxoj/maigret/tree/main) as this relies on the CLI as a backend, nothing much has changed in functions. Can also install it via a venv with 
+A GUI edition of the OSINT tool maigret, Full info can be [found here](https://github.com/soxoj/maigret/tree/main) along with the [docs](https://maigret.readthedocs.io/en/latest/quick-start.html) as this relies on the CLI as a backend, nothing much has changed in functions. Can also install it via a venv with 
 
     python -m venv venv && pip3 install maigret
 

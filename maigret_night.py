@@ -51,24 +51,49 @@ class MaigretWebWorker(QThread):
 class MaigretWorker(QThread):
     output_signal = pyqtSignal(str)
     finished_signal = pyqtSignal()
-
-    def __init__(self, command):
+    
+    def __init__(self, command, auto_confirm_self_check=False):
         super().__init__()
         self.command = command
         self.process = None
-        self.maigret_web_worker = None  # Add this line
+        self.auto_confirm_self_check = auto_confirm_self_check
 
     def run(self):
-        self.process = subprocess.Popen(self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, shell=True)
+        # Start process
+        self.process = subprocess.Popen(
+            self.command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
+        
+        # If auto-confirm is enabled, send 'y' immediately
+        # This works because Maigret will read stdin when it needs it
+        if self.auto_confirm_self_check:
+            self.process.stdin.write('y\n')
+            self.process.stdin.flush()
+        
+        # Read output
         for line in self.process.stdout:
-            self.output_signal.emit(line.strip())
+            cleaned_line = line.strip()
+            # Clean ANSI escape sequences
+            import re
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            cleaned_line = ansi_escape.sub('', cleaned_line)
+            
+            if cleaned_line:
+                self.output_signal.emit(cleaned_line)
+                
+                # Log that we auto-responded if we see the prompt
+                if "Do you want to save changes permanently?" in cleaned_line:
+                    if self.auto_confirm_self_check:
+                        self.output_signal.emit("✓ Already auto-responded 'y'")
+        
         self.process.wait()
         self.finished_signal.emit()
-
-    def terminate(self):
-        if self.process:
-            self.process.terminate()
-            self.process.wait()
 
 class MaigretGUI(QMainWindow, CrowTabMethods):
     def __init__(self):
@@ -565,7 +590,7 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         command += f" --timeout {self.timeout_spinbox.value()}"
         command += f" --retries {self.retries_spinbox.value()}"
         command += f" --max-connections {self.max_connections_spinbox.value()}"
-        
+     
         if self.no_recursion_checkbox.isChecked():
             command += " --no-recursion"
         if self.no_extracting_checkbox.isChecked():
@@ -652,6 +677,10 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         
         self.output_area.append(f"Running command: {command}")
 
+        if self.self_check_checkbox.isChecked():
+            # Prepend with echo 'y' | to auto-respond
+            command = f"echo 'y' | {command}"
+        
         self.maigret_worker = MaigretWorker(command)
         self.maigret_worker.output_signal.connect(self.append_output)
         self.maigret_worker.finished_signal.connect(self.on_maigret_finished)
