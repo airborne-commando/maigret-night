@@ -10,9 +10,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QGroupBox, QFormLayout, QSpinBox, QComboBox, QTabWidget, 
                              QFileDialog, QMessageBox, QDialog, QDialogButtonBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-
 # Import from modular directory
-from maigret_mods.workers import CrowWorker, MaigretWorker, MaigretWebWorker
+from maigret_mods.workers import CrowWorker, MaigretWorker, MaigretWebWorker, DashboardWorker
 from maigret_mods.tor_spoofing import TORSpoofer
 from maigret_mods.crow_header import create_crow_tab
 from maigret_mods.crow_tabs import CrowTabMethods
@@ -34,6 +33,7 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         self.crow_tor_spoofer = None
         self.crow_ai_api_key = None
         self.maigret_web_worker = None
+        self.dashboard_worker = None  # Add this line
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -543,6 +543,7 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
     def toggle_report_sorting_input(self):
         self.report_sorting_combobox.setEnabled(self.report_sorting_checkbox.isChecked())
 
+    # In the create_buttons method of MaigretGUI class
     def create_buttons(self, layout):
         button_layout = QHBoxLayout()
         
@@ -561,6 +562,11 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         self.web_button.clicked.connect(self.toggle_web_interface)
         button_layout.addWidget(self.web_button)
         
+        # Add Dashboard button
+        self.dashboard_button = QPushButton("Generate Dashboard")
+        self.dashboard_button.clicked.connect(self.generate_dashboard)
+        button_layout.addWidget(self.dashboard_button)
+        
         # Add port input for web interface
         web_port_layout = QHBoxLayout()
         web_port_layout.addWidget(QLabel("Web Port:"))
@@ -575,6 +581,54 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         self.output_area = QTextEdit()
         self.output_area.setReadOnly(True)
         layout.addWidget(self.output_area)
+
+    def generate_dashboard(self):
+        """Generate and display the data dashboard"""
+        # Check if there are any reports to display
+        reports_dir = "reports"
+        results_dir = "results"
+        
+        if not os.path.exists(reports_dir) and not os.path.exists(results_dir):
+            reply = QMessageBox.question(
+                self, 
+                "No Reports Found", 
+                "No reports or results directories found. Generate empty dashboard?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.No:
+                return
+        
+        # Ask if user wants to open in browser
+        open_browser = QMessageBox.question(
+            self,
+            "Open Dashboard?",
+            "Generate dashboard and open in browser?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        open_browser = (open_browser == QMessageBox.StandardButton.Yes)
+        
+        # Create and start dashboard worker
+        self.dashboard_worker = DashboardWorker(open_browser=open_browser)
+        self.dashboard_worker.output_signal.connect(self.append_output)
+        self.dashboard_worker.finished_signal.connect(self.on_dashboard_finished)
+        self.dashboard_worker.start()
+        
+        # Disable button while generating
+        self.dashboard_button.setEnabled(False)
+
+    def on_dashboard_finished(self, success, message):
+        """Called when dashboard generation finishes"""
+        self.dashboard_button.setEnabled(True)
+        
+        if success:
+            self.output_area.append(f"✅ {message}")
+        else:
+            self.output_area.append(f"❌ {message}")
+            QMessageBox.warning(self, "Dashboard Error", message)
 
     def toggle_web_interface(self):
         """Toggle the Maigret web interface on/off"""

@@ -1,9 +1,54 @@
 import os
+import sys
 import subprocess
+import webbrowser
 from PyQt6.QtCore import QThread, pyqtSignal
 import ssl
 from datetime import datetime
 import re
+
+class DashboardWorker(QThread):
+    output_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal(bool, str)  # success, message
+    
+    def __init__(self, open_browser=True):
+        super().__init__()
+        self.open_browser = open_browser
+        self.dashboard_path = None
+        
+    def run(self):
+        try:
+            self.output_signal.emit("🔄 Generating dashboard...")
+            
+            # Import dashboard functions
+            try:
+                from maigret_mods.gen_dashboard import generate_dashboard
+                
+                # Generate the dashboard
+                dashboard_file = generate_dashboard()
+                self.dashboard_path = os.path.abspath(dashboard_file)
+                
+                self.output_signal.emit(f"✅ Dashboard generated: {dashboard_file}")
+                self.output_signal.emit(f"📁 Location: {self.dashboard_path}")
+                
+                # Open in browser if requested
+                if self.open_browser:
+                    webbrowser.open(f"file://{self.dashboard_path}")
+                    self.output_signal.emit("🌐 Opening dashboard in browser...")
+                
+                self.finished_signal.emit(True, f"Dashboard generated successfully: {dashboard_file}")
+                
+            except ImportError as e:
+                self.output_signal.emit(f"❌ Error importing dashboard module: {e}")
+                self.finished_signal.emit(False, f"Import error: {e}")
+                
+            except Exception as e:
+                self.output_signal.emit(f"❌ Error generating dashboard: {e}")
+                self.finished_signal.emit(False, f"Generation error: {e}")
+                
+        except Exception as e:
+            self.output_signal.emit(f"❌ Unexpected error: {e}")
+            self.finished_signal.emit(False, f"Unexpected error: {e}")
 
 class CrowWorker(QThread):
     output_signal = pyqtSignal(str)
