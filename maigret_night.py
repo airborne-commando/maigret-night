@@ -288,9 +288,94 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
     def append_output(self, text):
         self.append_output_wrapper(text)
 
+    # ================================================================
+    # IMPORTANT: ADD THESE METHODS FOR PROPER THREAD CLEANUP
+    # ================================================================
+    
+    def closeEvent(self, event):
+        """Handle application close event - clean up threads before exiting"""
+        # Stop all running workers
+        self.cleanup_workers()
+        
+        # Accept the close event
+        event.accept()
+    
+    def cleanup_workers(self):
+        """Clean up all worker threads before exiting"""
+        # Stop Maigret web interface if running
+        if self.maigret_web_worker and self.maigret_web_worker.isRunning():
+            self.output_area.append("Stopping web interface...")
+            self.stop_web_interface()
+        
+        # Stop Maigret search if running
+        if self.maigret_worker and self.maigret_worker.isRunning():
+            self.output_area.append("Stopping Maigret search...")
+            self.stop_maigret()
+        
+        # Stop Crow search if running
+        if self.crow_worker and self.crow_worker.isRunning():
+            self.output_area.append("Stopping Crow search...")
+            self.stop_crow_search()
+        
+        # Stop Dashboard generation if running
+        if self.dashboard_worker and self.dashboard_worker.isRunning():
+            self.output_area.append("Stopping dashboard generation...")
+            self.dashboard_worker.terminate()
+            self.dashboard_worker.wait()
+        
+        # Give threads time to finish
+        import time
+        time.sleep(0.5)
+        
+        # Disconnect all signals
+        if self.maigret_worker:
+            try:
+                self.maigret_worker.output_signal.disconnect()
+                self.maigret_worker.finished_signal.disconnect()
+            except:
+                pass
+        
+        if self.crow_worker:
+            try:
+                self.crow_worker.output_signal.disconnect()
+                self.crow_worker.finished_signal.disconnect()
+                if hasattr(self.crow_worker, 'ai_file_saved'):
+                    self.crow_worker.ai_file_saved.disconnect()
+            except:
+                pass
+        
+        if self.maigret_web_worker:
+            try:
+                self.maigret_web_worker.output_signal.disconnect()
+                self.maigret_web_worker.finished_signal.disconnect()
+            except:
+                pass
+        
+        if self.dashboard_worker:
+            try:
+                self.dashboard_worker.output_signal.disconnect()
+                self.dashboard_worker.finished_signal.disconnect()
+            except:
+                pass
+        
+        self.output_area.append("All workers cleaned up. Safe to exit.")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MaigretGUI()
     window.show()
-    sys.exit(app.exec())
+    
+    # Set up proper application exit handling
+    try:
+        result = app.exec()
+        # Ensure cleanup happens on exit
+        window.cleanup_workers()
+        sys.exit(result)
+    except KeyboardInterrupt:
+        window.cleanup_workers()
+        sys.exit(0)
+    except Exception as e:
+        print(f"Application error: {e}")
+        window.cleanup_workers()
+        sys.exit(1)

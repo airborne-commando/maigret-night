@@ -493,14 +493,38 @@ class CrowTabMethods:
             return True  # Proceed without AI
 
     def stop_crow_search(self):
-        """Stop the Crow search"""
+        """Stop the Crow search and prevent file creation"""
         if self.crow_worker and self.crow_worker.isRunning():
+            # First, terminate the worker thread
             self.crow_worker.terminate()
+            
+            # Also terminate the underlying subprocess if it exists
+            if hasattr(self.crow_worker, 'process') and self.crow_worker.process:
+                try:
+                    # Forcefully terminate the Blackbird subprocess
+                    self.crow_worker.process.terminate()
+                    
+                    # On some systems, we might need to kill it
+                    import signal
+                    self.crow_worker.process.send_signal(signal.SIGTERM)
+                    
+                    # Wait a bit for process to terminate
+                    import time
+                    time.sleep(0.5)
+                    
+                    # Force kill if still running
+                    if self.crow_worker.process.poll() is None:
+                        self.crow_worker.process.kill()
+                        
+                except Exception as e:
+                    self.output_area.append(f"⚠️ Error stopping process: {e}")
+            
+            # Wait for thread to finish
             self.crow_worker.wait()
         
         self.crow_run_btn.setEnabled(True)
         self.crow_stop_btn.setEnabled(False)
-        self.output_area.append("⏹️ Crow search stopped.")
+        self.output_area.append("⏹️ Crow search stopped (process terminated, files not created).")
 
     def update_crow_output(self, text):
         """Update Crow output area with text"""

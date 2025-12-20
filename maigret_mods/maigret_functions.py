@@ -416,7 +416,7 @@ def create_options_tab(gui_instance, tab_widget):
     tor_proxy_sub_layout = QVBoxLayout()
     tor_proxy_sub_layout.addWidget(QLabel("Tor Proxy:"))
     gui_instance.tor_proxy_input = QLineEdit()
-    gui_instance.tor_proxy_input.setText("socks5://127.0.0.1:9050")
+    gui_instance.tor_proxy_input.setPlaceholderText("socks5://127.0.0.1:9050")
     tor_proxy_sub_layout.addWidget(gui_instance.tor_proxy_input)
     tor_proxy_widget.setLayout(tor_proxy_sub_layout)
     proxy_layout.addWidget(tor_proxy_widget)

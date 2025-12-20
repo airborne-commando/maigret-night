@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import webbrowser
+import signal  # ADD THIS IMPORT
 from PyQt6.QtCore import QThread, pyqtSignal
 import ssl
 from datetime import datetime
@@ -68,6 +69,9 @@ class CrowWorker(QThread):
         # AI analysis state
         self.ai_results_started = False
         self.ai_results_buffer = []
+        
+        # Termination flag
+        self._terminate_requested = False
     
     def run(self):
         # Set up TOR environment at the beginning
@@ -84,39 +88,51 @@ class CrowWorker(QThread):
             os.environ["PYTHONHTTPSVERIFY"] = "0"
             ssl._create_default_https_context = ssl._create_unverified_context
         
-        self.process = subprocess.Popen(
-            self.command, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT, 
-            stdin=subprocess.PIPE,
-            text=True, 
-            shell=True,
-            bufsize=1
-        )
+        # Create process with proper signal handling
+        try:
+            self.process = subprocess.Popen(
+                self.command, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                stdin=subprocess.PIPE,
+                text=True, 
+                shell=True,
+                bufsize=1,
+                preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create process group
+            )
+        except Exception as e:
+            self.output_signal.emit(f"❌ Failed to start process: {e}")
+            self.finished_signal.emit()
+            return
         
         if self.is_setup_ai:
             import time
             time.sleep(2)
             try:
-                self.process.stdin.write('Y\n')
-                self.process.stdin.flush()
-                self.output_signal.emit("✓ Sent confirmation for API key setup")
+                if self.process.stdin and not self._terminate_requested:
+                    self.process.stdin.write('Y\n')
+                    self.process.stdin.flush()
+                    self.output_signal.emit("✓ Sent confirmation for API key setup")
             except Exception as e:
                 self.output_signal.emit(f"Setup confirmation error: {e}")
         
         # Process output line by line
         confirmation_sent = False
         for line in self.process.stdout:
+            if self._terminate_requested:
+                break
+                
             text = line.rstrip()  # Keep original formatting
             
             # Handle AI confirmation if needed
             if (self.needs_ai_confirmation and not confirmation_sent and 
                 ('analyzing with ai' in text.lower() or 'consent' in text.lower())):
                 try:
-                    self.process.stdin.write('Y\n')
-                    self.process.stdin.flush()
-                    confirmation_sent = True
-                    self.output_signal.emit("✓ Automatically confirmed AI analysis")
+                    if self.process.stdin and not self._terminate_requested:
+                        self.process.stdin.write('Y\n')
+                        self.process.stdin.flush()
+                        confirmation_sent = True
+                        self.output_signal.emit("✓ Automatically confirmed AI analysis")
                 except Exception as e:
                     self.output_signal.emit(f"AI confirmation error: {e}")
             
@@ -128,14 +144,62 @@ class CrowWorker(QThread):
             self.output_signal.emit(formatted_text)
         
         # Save any remaining AI results
-        if self.ai_results_started:
+        if self.ai_results_started and not self._terminate_requested:
             self.auto_save_ai_results()
         
-        self.process.stdout.close()
-        self.process.wait()
+        # Clean up process
+        try:
+            if self.process.stdout:
+                self.process.stdout.close()
+            if self.process.stdin:
+                self.process.stdin.close()
+        except:
+            pass
+        
+        # Wait for process
+        try:
+            if not self._terminate_requested:
+                self.process.wait()
+        except:
+            pass
+        
+        if not self._terminate_requested:
+            self.finished_signal.emit()
 
+    def terminate(self):
+        """Properly terminate the thread and process"""
+        self._terminate_requested = True
+        
+        if self.process:
+            try:
+                # Kill the entire process group
+                if hasattr(os, 'setsid'):
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                else:
+                    self.process.terminate()
+                
+                # Wait for clean termination
+                self.process.wait(timeout=2)
+            except:
+                try:
+                    # Force kill if still running
+                    if self.process.poll() is None:
+                        if hasattr(os, 'setsid'):
+                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                        else:
+                            self.process.kill()
+                        self.process.wait(timeout=1)
+                except:
+                    pass
+        
+        # Call parent's terminate
+        super().terminate()
+    
     def process_ai_output(self, text):
         """Process AI analysis output similar to crow.py"""
+        if self._terminate_requested:
+            return
+            
         # Check if AI analysis is starting
         if 'analyzing with ai' in text.lower() or '✨ analyzing with ai' in text.lower():
             self.ai_results_started = True
@@ -196,7 +260,7 @@ class CrowWorker(QThread):
     
     def auto_save_ai_results(self):
         """Automatically save AI results to file (from crow.py)"""
-        if not self.ai_results_buffer:
+        if not self.ai_results_buffer or self._terminate_requested:
             return
         
         try:
@@ -234,7 +298,7 @@ class CrowWorker(QThread):
             
         except Exception as e:
             self.output_signal.emit(f"❌ Error auto-saving AI results: {e}")
-    
+
 class MaigretWorker(QThread):
     output_signal = pyqtSignal(str)
     finished_signal = pyqtSignal()
@@ -244,9 +308,10 @@ class MaigretWorker(QThread):
         self.command = command
         self.process = None
         self.auto_confirm_self_check = auto_confirm_self_check
+        self._terminate_requested = False  # ADD THIS
 
     def run(self):
-        # Start process
+        # Start process with proper signal handling
         self.process = subprocess.Popen(
             self.command,
             shell=True,
@@ -254,16 +319,24 @@ class MaigretWorker(QThread):
             stderr=subprocess.STDOUT,
             stdin=subprocess.PIPE,
             text=True,
-            bufsize=1
+            bufsize=1,
+            preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create process group
         )
         
         # If auto-confirm is enabled, send 'y' immediately
-        if self.auto_confirm_self_check:
-            self.process.stdin.write('y\n')
-            self.process.stdin.flush()
+        if self.auto_confirm_self_check and not self._terminate_requested:
+            try:
+                if self.process.stdin:
+                    self.process.stdin.write('y\n')
+                    self.process.stdin.flush()
+            except:
+                pass
         
         # Read output
         for line in self.process.stdout:
+            if self._terminate_requested:
+                break
+                
             cleaned_line = line.strip()
             # Clean ANSI escape sequences
             import re
@@ -275,11 +348,56 @@ class MaigretWorker(QThread):
                 
                 # Log that we auto-responded if we see the prompt
                 if "Do you want to save changes permanently?" in cleaned_line:
-                    if self.auto_confirm_self_check:
+                    if self.auto_confirm_self_check and not self._terminate_requested:
                         self.output_signal.emit("✓ Already auto-responded 'y'")
         
-        self.process.wait()
-        self.finished_signal.emit()
+        # Clean up
+        try:
+            if self.process.stdout:
+                self.process.stdout.close()
+            if self.process.stdin:
+                self.process.stdin.close()
+        except:
+            pass
+        
+        # Wait for process to finish
+        if not self._terminate_requested:
+            self.process.wait()
+        
+        if not self._terminate_requested:
+            self.finished_signal.emit()
+    
+    def terminate(self):
+        """Properly terminate the process to avoid zombies"""
+        self._terminate_requested = True
+        
+        if self.process:
+            try:
+                # Try to send SIGTERM first
+                if hasattr(os, 'setsid'):
+                    # Kill the entire process group
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                else:
+                    self.process.terminate()
+                
+                # Wait a bit for clean termination
+                self.process.wait(timeout=2)
+            except:
+                try:
+                    # Force kill if still running
+                    if self.process.poll() is None:
+                        if hasattr(os, 'setsid'):
+                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                        else:
+                            self.process.kill()
+                        
+                        # Wait and reap
+                        self.process.wait(timeout=1)
+                except:
+                    pass
+        
+        # Call parent's terminate
+        super().terminate()
 
 class MaigretWebWorker(QThread):
     output_signal = pyqtSignal(str)
@@ -289,21 +407,58 @@ class MaigretWebWorker(QThread):
         super().__init__()
         self.port = port
         self.process = None
+        self._terminate_requested = False  # ADD THIS
         
     def run(self):
-        self.process = subprocess.Popen(
-            f"maigret --web {self.port}",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            shell=True
-        )
-        for line in self.process.stdout:
-            self.output_signal.emit(line.strip())
-        self.process.wait()
-        self.finished_signal.emit()
+        try:
+            self.process = subprocess.Popen(
+                f"maigret --web {self.port}",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                shell=True,
+                preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create process group
+            )
+            
+            for line in self.process.stdout:
+                if self._terminate_requested:
+                    break
+                self.output_signal.emit(line.strip())
+                
+            # Clean up
+            try:
+                if self.process.stdout:
+                    self.process.stdout.close()
+            except:
+                pass
+            
+            if not self._terminate_requested:
+                self.process.wait()
+                self.finished_signal.emit()
+        except Exception as e:
+            self.output_signal.emit(f"Error: {e}")
+            self.finished_signal.emit()
         
     def terminate(self):
+        """Terminate the web interface process"""
+        self._terminate_requested = True
+        
         if self.process:
-            self.process.terminate()
-            self.process.wait()
+            try:
+                if hasattr(os, 'setsid'):
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                else:
+                    self.process.terminate()
+                self.process.wait(timeout=2)
+            except:
+                try:
+                    if self.process.poll() is None:
+                        if hasattr(os, 'setsid'):
+                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                        else:
+                            self.process.kill()
+                        self.process.wait(timeout=1)
+                except:
+                    pass
+        
+        super().terminate()
