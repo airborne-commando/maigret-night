@@ -461,4 +461,258 @@ class MaigretWebWorker(QThread):
                 except:
                     pass
         
+class MaigretMultiSearchWorker(QThread):
+    """Worker thread for running multiple Maigret searches"""
+    output_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal()
+    progress_signal = pyqtSignal(int, int)  # (current, total)
+    
+    def __init__(self, usernames, gui_instance):
+        super().__init__()
+        self.usernames = usernames
+        self.gui_instance = gui_instance
+        self.should_stop = False
+        
+        # Store command parts from gui_instance
+        self.timeout = None
+        self.retries = None
+        self.max_connections = None
+        self.no_recursion = None
+        self.no_extracting = None
+        self.permute = None
+        self.proxy = None
+        self.tor_proxy = None
+        self.i2p_proxy = None
+        self.all_sites = None
+        self.top_sites = None
+        self.top_sites_count = None
+        self.tags = None
+        self.sites_list = None
+        self.use_disabled_sites = None
+        self.parse_url = None
+        self.submit_url = None
+        self.self_check = None
+        self.csv_output = None
+        self.pdf_output = None
+        self.txt_output = None
+        self.json_simple = None
+        self.json_ndjson = None
+        self.graph_output = None
+        self.html_output = None
+        self.report_sorting = None
+        self.report_sorting_type = None
+        self.print_not_found = None
+        self.print_errors = None
+        self.verbose = None
+        self.info = None
+        self.debug = None
+        
+        # Cache GUI values to avoid thread safety issues
+        self.cache_gui_values()
+    
+    def cache_gui_values(self):
+        """Cache GUI values to avoid accessing GUI from worker thread"""
+        try:
+            self.timeout = self.gui_instance.timeout_spinbox.value()
+            self.retries = self.gui_instance.retries_spinbox.value()
+            self.max_connections = self.gui_instance.max_connections_spinbox.value()
+            self.no_recursion = self.gui_instance.no_recursion_checkbox.isChecked()
+            self.no_extracting = self.gui_instance.no_extracting_checkbox.isChecked()
+            self.permute = self.gui_instance.permute_checkbox.isChecked()
+            self.proxy = self.gui_instance.proxy_input.text().strip()
+            self.tor_proxy = self.gui_instance.tor_proxy_input.text().strip()
+            self.i2p_proxy = self.gui_instance.i2p_proxy_input.text().strip()
+            self.all_sites = self.gui_instance.all_sites_checkbox.isChecked()
+            self.top_sites = self.gui_instance.top_sites_checkbox.isChecked()
+            self.top_sites_count = self.gui_instance.top_sites_input.value()
+            self.tags = self.gui_instance.tags_input.text().strip()
+            
+            # Sites list
+            sites_text = self.gui_instance.site_textedit.toPlainText()
+            self.sites_list = [site.strip() for site in sites_text.split('\n') if site.strip()]
+            
+            self.use_disabled_sites = self.gui_instance.use_disabled_sites_checkbox.isChecked()
+            self.parse_url = self.gui_instance.parse_url_input.text().strip()
+            self.submit_url = self.gui_instance.submit_url_input.text().strip()
+            self.self_check = self.gui_instance.self_check_checkbox.isChecked()
+            self.csv_output = self.gui_instance.csv_checkbox.isChecked()
+            self.pdf_output = self.gui_instance.pdf_checkbox.isChecked()
+            self.txt_output = self.gui_instance.txt_checkbox.isChecked()
+            self.json_simple = self.gui_instance.json_checkbox_simple.isChecked()
+            self.json_ndjson = self.gui_instance.json_checkbox_ndjson.isChecked()
+            self.graph_output = self.gui_instance.G_checkbox.isChecked()
+            self.html_output = self.gui_instance.html_checkbox.isChecked()
+            self.report_sorting = self.gui_instance.report_sorting_checkbox.isChecked()
+            self.report_sorting_type = self.gui_instance.report_sorting_combobox.currentText()
+            self.print_not_found = self.gui_instance.print_not_found_checkbox.isChecked()
+            self.print_errors = self.gui_instance.print_errors_checkbox.isChecked()
+            self.verbose = self.gui_instance.verbose_checkbox.isChecked()
+            self.info = self.gui_instance.info_checkbox.isChecked()
+            self.debug = self.gui_instance.debug_checkbox.isChecked()
+            
+        except Exception as e:
+            self.output_signal.emit(f"⚠️  Error caching GUI values: {e}")
+    
+    def run(self):
+        """Run Maigret searches for each username"""
+        total_users = len(self.usernames)
+        
+        for i, username in enumerate(self.usernames, 1):
+            if self.should_stop:
+                self.output_signal.emit("⚠️  Maigret search stopped by user")
+                break
+            
+            self.output_signal.emit(f"\n{'='*60}")
+            self.output_signal.emit(f"🔍 SEARCHING USERNAME {i}/{total_users}: {username}")
+            self.output_signal.emit(f"{'='*60}")
+            
+            # Emit progress
+            self.progress_signal.emit(i, total_users)
+            
+            # Build command for this username
+            command = f"maigret {username}"
+            
+            # Add cached options
+            command += f" --timeout {self.timeout}"
+            command += f" --retries {self.retries}"
+            command += f" --max-connections {self.max_connections}"
+            
+            if self.no_recursion:
+                command += " --no-recursion"
+            if self.no_extracting:
+                command += " --no-extracting"
+            if self.permute:
+                command += " --permute"
+            
+            if self.proxy:
+                command += f" --proxy {self.proxy}"
+            
+            if self.tor_proxy and self.tor_proxy != "socks5://127.0.0.1:9050":
+                command += f" --tor-proxy {self.tor_proxy}"
+            
+            if self.i2p_proxy:
+                command += f" --i2p-proxy {self.i2p_proxy}"
+            
+            if self.all_sites:
+                command += " --all-sites"
+            
+            if self.top_sites:
+                command += f" --top-sites {self.top_sites_count}"
+            
+            if self.tags:
+                command += f" --tags {self.tags}"
+            
+            # Add sites as separate --site parameters
+            if self.sites_list:
+                for site in self.sites_list:
+                    command += f" --site {site}"
+                self.output_signal.emit(f"Using {len(self.sites_list)} site(s) for this search")
+            
+            if self.use_disabled_sites:
+                command += " --use-disabled-sites"
+            
+            if self.parse_url:
+                command += f" --parse {self.parse_url}"
+            
+            if self.submit_url:
+                command += f" --submit {self.submit_url}"
+            
+            if self.self_check:
+                command += " --self-check"
+            
+            # Output formats
+            if self.csv_output:
+                command += " --csv"
+            if self.pdf_output:
+                command += " --pdf"
+            if self.txt_output:
+                command += " --txt"
+            if self.json_simple:
+                command += " --json simple"
+            if self.json_ndjson:
+                command += " --json ndjson"
+            if self.graph_output:
+                command += " --graph"
+            if self.html_output:
+                command += " --html"
+            
+            if self.report_sorting:
+                command += f" --reports-sorting {self.report_sorting_type}"
+            
+            if self.print_not_found:
+                command += " --print-not-found"
+            if self.print_errors:
+                command += " --print-errors"
+            if self.verbose:
+                command += " --verbose"
+            if self.info:
+                command += " --info"
+            if self.debug:
+                command += " --debug"
+            
+            self.output_signal.emit(f"Running command for '{username}': {command}")
+            
+            if self.self_check:
+                # Prepend with echo 'y' | to auto-respond
+                command = f"echo 'y' | {command}"
+            
+            # Run the command
+            try:
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True,
+                    preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+                )
+                
+                # Capture output in real-time
+                for line in process.stdout:
+                    if self.should_stop:
+                        # Kill the process if we're stopping
+                        if hasattr(os, 'setsid'):
+                            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                        else:
+                            process.terminate()
+                        break
+                    
+                    # Clean ANSI escape sequences
+                    import re
+                    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+                    clean_line = ansi_escape.sub('', line.rstrip())
+                    
+                    if clean_line:
+                        self.output_signal.emit(clean_line)
+                
+                if not self.should_stop:
+                    process.wait()
+                    
+                    if process.returncode == 0:
+                        self.output_signal.emit(f"✅ Search completed for '{username}'")
+                    else:
+                        self.output_signal.emit(f"❌ Search failed for '{username}' (exit code: {process.returncode})")
+                        
+            except Exception as e:
+                self.output_signal.emit(f"❌ Error running Maigret for '{username}': {str(e)}")
+            
+            # Brief pause between searches (optional)
+            if i < total_users and not self.should_stop:
+                import time
+                time.sleep(1)
+        
+        self.output_signal.emit(f"\n{'='*60}")
+        if self.should_stop:
+            self.output_signal.emit(f"⚠️  Maigret multi-search stopped. Processed {i-1}/{total_users} users.")
+        else:
+            self.output_signal.emit(f"✅ Maigret multi-search completed! Processed {total_users} users.")
+        self.output_signal.emit(f"{'='*60}")
+        
+        self.finished_signal.emit()
+    
+    def terminate(self):
+        """Stop the multi-search operation"""
+        self.should_stop = True
         super().terminate()

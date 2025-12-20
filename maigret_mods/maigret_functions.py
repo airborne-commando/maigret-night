@@ -324,11 +324,21 @@ def create_options_tab(gui_instance, tab_widget):
     options_group = QWidget()
     options_layout = QVBoxLayout()
 
-    # Username input
+    # Username input with file button
     username_layout = QHBoxLayout()
-    gui_instance.username_input = QLineEdit()
     username_layout.addWidget(QLabel("Username:"))
+    
+    gui_instance.username_input = QLineEdit()
+    gui_instance.username_input.setPlaceholderText("Enter username or 'file:path/to/file.txt'")
     username_layout.addWidget(gui_instance.username_input)
+    
+    # Username file button - ADDED
+    gui_instance.username_file_btn = QPushButton("📁")
+    gui_instance.username_file_btn.setToolTip("Select username file")
+    gui_instance.username_file_btn.clicked.connect(gui_instance.select_maigret_username_file)  # Will need to create this method
+    gui_instance.username_file_btn.setFixedWidth(40)
+    username_layout.addWidget(gui_instance.username_file_btn)
+    
     options_layout.addLayout(username_layout)
 
     # Timeout input
@@ -732,7 +742,7 @@ def append_web_output(gui_instance, text):
     gui_instance.output_area.append(f"[Web Interface] {text}")
 
 def run_maigret(gui_instance):
-    """Run the Maigret search"""
+    """Run the Maigret search for each username in a file"""
     
     # STOP WEB INTERFACE IF RUNNING
     if gui_instance.maigret_web_worker and gui_instance.maigret_web_worker.isRunning():
@@ -746,109 +756,48 @@ def run_maigret(gui_instance):
     
     gui_instance.output_area.clear()
 
-    command = f"maigret {gui_instance.username_input.text()}"
-
-    command += f" --timeout {gui_instance.timeout_spinbox.value()}"
-    command += f" --retries {gui_instance.retries_spinbox.value()}"
-    command += f" --max-connections {gui_instance.max_connections_spinbox.value()}"
- 
-    if gui_instance.no_recursion_checkbox.isChecked():
-        command += " --no-recursion"
-    if gui_instance.no_extracting_checkbox.isChecked():
-        command += " --no-extracting"
-    if gui_instance.permute_checkbox.isChecked():
-        command += " --permute"
+    # Handle username file input
+    username_text = gui_instance.username_input.text().strip()
+    usernames = []
     
-    proxy = gui_instance.proxy_input.text()
-    if proxy:
-        command += f" --proxy {proxy}"
+    if username_text.startswith('file:'):
+        file_path = username_text[5:]
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as f:
+                    usernames = [line.strip() for line in f if line.strip()]
+                gui_instance.output_area.append(f"Loaded {len(usernames)} username(s) from file: {os.path.basename(file_path)}")
+            except Exception as e:
+                gui_instance.output_area.append(f"❌ Error reading username file: {str(e)}")
+                return
+        else:
+            gui_instance.output_area.append(f"❌ File not found: {file_path}")
+            return
+    else:
+        # Single username
+        usernames = [username_text] if username_text else []
     
-    tor_proxy = gui_instance.tor_proxy_input.text()
-    if tor_proxy and tor_proxy != "socks5://127.0.0.1:9050":
-        command += f" --tor-proxy {tor_proxy}"
+    if not usernames:
+        gui_instance.output_area.append("❌ No username(s) provided!")
+        return
     
-    i2p_proxy = gui_instance.i2p_proxy_input.text()
-    if i2p_proxy:
-        command += f" --i2p-proxy {i2p_proxy}"
+    # Disable run button while processing
+    gui_instance.run_button.setEnabled(False)
+    gui_instance.stop_button.setEnabled(True)
     
-    if gui_instance.all_sites_checkbox.isChecked():
-        command += " --all-sites"
-    
-    if gui_instance.top_sites_checkbox.isChecked():
-        command += f" --top-sites {gui_instance.top_sites_input.value()}"
-    
-    tags = gui_instance.tags_input.text()
-    if tags:
-        command += f" --tags {tags}"
-    
-    # Handle multiple sites as separate --site parameters
-    sites_text = gui_instance.site_textedit.toPlainText()
-    if sites_text:
-        # Split by lines and filter out empty lines
-        sites_list = [site.strip() for site in sites_text.split('\n') if site.strip()]
-        if sites_list:
-            # Add each site as a separate --site parameter
-            for site in sites_list:
-                command += f" --site {site}"
-            gui_instance.output_area.append(f"Using {len(sites_list)} site(s): {', '.join(sites_list)}")
-    
-    if gui_instance.use_disabled_sites_checkbox.isChecked():
-        command += " --use-disabled-sites"
-    
-    parse_url = gui_instance.parse_url_input.text()
-    if parse_url:
-        command += f" --parse {parse_url}"
-    
-    submit_url = gui_instance.submit_url_input.text()
-    if submit_url:
-        command += f" --submit {submit_url}"
-    
-    if gui_instance.self_check_checkbox.isChecked():
-        command += " --self-check"
-    
-    # Output formats
-    if gui_instance.csv_checkbox.isChecked():
-        command += " --csv"
-    if gui_instance.pdf_checkbox.isChecked():
-        command += " --pdf"
-    if gui_instance.txt_checkbox.isChecked():
-        command += " --txt"
-    if gui_instance.json_checkbox_simple.isChecked():
-        command += " --json simple"
-    if gui_instance.json_checkbox_ndjson.isChecked():
-        command += " --json ndjson"
-    if gui_instance.G_checkbox.isChecked():
-        command += " --graph"
-    if gui_instance.html_checkbox.isChecked():
-        command += " --html"
-    
-    if gui_instance.report_sorting_checkbox.isChecked():
-        command += f" --reports-sorting {gui_instance.report_sorting_combobox.currentText()}"
-    
-    if gui_instance.print_not_found_checkbox.isChecked():
-        command += " --print-not-found"
-    if gui_instance.print_errors_checkbox.isChecked():
-        command += " --print-errors"
-    if gui_instance.verbose_checkbox.isChecked():
-        command += " --verbose"
-    if gui_instance.info_checkbox.isChecked():
-        command += " --info"
-    if gui_instance.debug_checkbox.isChecked():
-        command += " --debug"
-    
-    gui_instance.output_area.append(f"Running command: {command}")
-
-    if gui_instance.self_check_checkbox.isChecked():
-        # Prepend with echo 'y' | to auto-respond
-        command = f"echo 'y' | {command}"
-    
-    gui_instance.maigret_worker = MaigretWorker(command)
+    # Run searches sequentially using the new multi-search worker
+    try:
+        from .workers import MaigretMultiSearchWorker
+    except ImportError:
+        from workers import MaigretMultiSearchWorker
+        
+    gui_instance.maigret_worker = MaigretMultiSearchWorker(
+        usernames=usernames,
+        gui_instance=gui_instance
+    )
     gui_instance.maigret_worker.output_signal.connect(gui_instance.append_output)
     gui_instance.maigret_worker.finished_signal.connect(gui_instance.on_maigret_finished)
     gui_instance.maigret_worker.start()
-
-    gui_instance.run_button.setEnabled(False)
-    gui_instance.stop_button.setEnabled(True)
 
 def on_maigret_finished(gui_instance):
     gui_instance.stop_button.setEnabled(False)

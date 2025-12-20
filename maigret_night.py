@@ -90,6 +90,7 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         # but we need to declare them here for the imported functions to work
         self.output_area = None
         self.username_input = None
+        self.username_file_btn = None  # ADDED: For the username file button
         self.timeout_spinbox = None
         self.retries_spinbox = None
         self.max_connections_spinbox = None
@@ -149,6 +150,28 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         self.crow_filter_input = None
         self.crow_run_btn = None
         self.crow_stop_btn = None
+
+    def select_maigret_username_file(self):
+        """Select a file containing usernames for Maigret"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Username File", 
+            "", 
+            "Text Files (*.txt);;All Files (*.*)"
+        )
+        
+        if file_path:
+            # Update the username input with file: prefix
+            self.username_input.setText(f"file:{file_path}")
+            self.output_area.append(f"Username file selected: {os.path.basename(file_path)}")
+            
+            # Optional: Count and display number of usernames in file
+            try:
+                with open(file_path, 'r') as f:
+                    usernames = [line.strip() for line in f if line.strip()]
+                self.output_area.append(f"Found {len(usernames)} username(s) in file")
+            except Exception as e:
+                self.output_area.append(f"Note: Could not read file - {str(e)}")
 
     # Define methods that will use the imported functions
     # These methods will be called from the UI components
@@ -359,7 +382,6 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
                 pass
         
         self.output_area.append("All workers cleaned up. Safe to exit.")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
