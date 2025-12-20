@@ -143,16 +143,17 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
         
         # Build Blackbird command
         try:
+            # Update the command building in run_crow_search method:
             command = build_blackbird_command(
                 username_input=username,
                 email_input=email,
                 username_file_input="",
                 email_file_input="",
                 permute_checkbox=self.crow_permute_checkbox.isChecked(),
-                permuteall_checkbox=False,
+                permuteall_checkbox=self.crow_permuteall_checkbox.isChecked(),  # ADDED
                 AI_checkbox=self.crow_ai_checkbox.isChecked(),
                 no_nsfw_checkbox=self.crow_no_nsfw_checkbox.isChecked(),
-                no_update_checkbox=False,
+                no_update_checkbox=self.crow_no_update_checkbox.isChecked(),  # ADDED
                 csv_checkbox=self.crow_csv_checkbox.isChecked(),
                 pdf_checkbox=self.crow_pdf_checkbox.isChecked(),
                 json_checkbox=self.crow_json_checkbox.isChecked(),
@@ -160,6 +161,7 @@ class MaigretGUI(QMainWindow, CrowTabMethods):
                 dump_checkbox=self.crow_dump_checkbox.isChecked(),
                 proxy_input="",
                 timeout_spinbox=30,
+                max_concurrent_requests=self.crow_max_concurrent_spinbox.value(),  # ADDED
                 filter_input=self.crow_filter_input.text(),
                 instagram_session_id=""
             )

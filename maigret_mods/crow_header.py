@@ -1,10 +1,11 @@
+# crow_header.py
 # ================================================================
 # CROW (Blackbird Integration) Section - MODULAR VERSION
 # ================================================================
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QLineEdit, QPushButton, QCheckBox, QGroupBox, 
-                            QFileDialog)
+                            QFileDialog, QSpinBox, QGridLayout)  # Added QGridLayout
 from PyQt6.QtCore import Qt
 
 def create_crow_tab(tab_widget, parent):
@@ -92,25 +93,35 @@ def create_crow_tab(tab_widget, parent):
     options_layout.addLayout(tor_layout)
 
     # Additional options in a grid
-    options_grid = QHBoxLayout()
+    options_grid = QGridLayout()  # Define the grid layout
 
-    # Left column
-    left_col = QVBoxLayout()
+    # Left column items (column 0)
     parent.crow_permute_checkbox = QCheckBox("Permute username")
-    left_col.addWidget(parent.crow_permute_checkbox)
+    options_grid.addWidget(parent.crow_permute_checkbox, 0, 0)
+
+    parent.crow_permuteall_checkbox = QCheckBox("Permute all variations")
+    options_grid.addWidget(parent.crow_permuteall_checkbox, 1, 0)
 
     parent.crow_no_nsfw_checkbox = QCheckBox("Exclude NSFW sites")
-    left_col.addWidget(parent.crow_no_nsfw_checkbox)
+    options_grid.addWidget(parent.crow_no_nsfw_checkbox, 2, 0)
 
-    # Right column
-    right_col = QVBoxLayout()
+    # ADDED: Max concurrent requests input
+    max_concurrent_layout = QHBoxLayout()
+    max_concurrent_layout.addWidget(QLabel("Max Concurrent:"))
+    parent.crow_max_concurrent_spinbox = QSpinBox()
+    parent.crow_max_concurrent_spinbox.setRange(1, 100)
+    parent.crow_max_concurrent_spinbox.setValue(30)
+    max_concurrent_layout.addWidget(parent.crow_max_concurrent_spinbox)
+    options_grid.addLayout(max_concurrent_layout, 3, 0)
+
+    # Right column items (column 1)
     parent.crow_verbose_checkbox = QCheckBox("Verbose logging")
-    right_col.addWidget(parent.crow_verbose_checkbox)
+    options_grid.addWidget(parent.crow_verbose_checkbox, 0, 1)
 
-    options_grid.addLayout(left_col)
-    options_grid.addSpacing(20)
-    options_grid.addLayout(right_col)
+    parent.crow_no_update_checkbox = QCheckBox("Disable updates")
+    options_grid.addWidget(parent.crow_no_update_checkbox, 1, 1)
 
+    # Add the grid to the options layout
     options_layout.addLayout(options_grid)
 
     # Filter input

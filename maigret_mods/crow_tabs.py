@@ -367,6 +367,9 @@ class CrowTabMethods:
                 "crow_email_input": self.crow_email_input.text(),
                 "crow_ai_checkbox": self.crow_ai_checkbox.isChecked(),
                 "crow_tor_checkbox": self.crow_tor_checkbox.isChecked(),
+                "crow_permuteall_checkbox": self.crow_permuteall_checkbox.isChecked(),  # ADDED
+                "crow_no_update_checkbox": self.crow_no_update_checkbox.isChecked(),    # ADDED
+                "crow_max_concurrent_spinbox": self.crow_max_concurrent_spinbox.value(),  # ADDED
                 "crow_permute_checkbox": self.crow_permute_checkbox.isChecked(),
                 "crow_no_nsfw_checkbox": self.crow_no_nsfw_checkbox.isChecked(),
                 "crow_csv_checkbox": self.crow_csv_checkbox.isChecked(),
@@ -402,6 +405,9 @@ class CrowTabMethods:
                 self.crow_csv_checkbox.setChecked(settings.get("crow_csv_checkbox", False))
                 self.crow_verbose_checkbox.setChecked(settings.get("crow_verbose_checkbox", False))
                 self.crow_pdf_checkbox.setChecked(settings.get("crow_pdf_checkbox", False))
+                self.crow_permuteall_checkbox.setChecked(settings.get("crow_permuteall_checkbox", False))  # ADDED
+                self.crow_no_update_checkbox.setChecked(settings.get("crow_no_update_checkbox", False))    # ADDED
+                self.crow_max_concurrent_spinbox.setValue(settings.get("crow_max_concurrent_spinbox", 30))  # ADDED
                 self.crow_json_checkbox.setChecked(settings.get("crow_json_checkbox", False))
                 self.crow_dump_checkbox.setChecked(settings.get("crow_dump_checkbox", False))
                 self.crow_filter_input.setText(settings.get("crow_filter_input", ""))

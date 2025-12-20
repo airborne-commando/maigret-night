@@ -21,6 +21,7 @@ def build_blackbird_command(
     dump_checkbox=False,
     proxy_input="",
     timeout_spinbox=30,
+    max_concurrent_requests=30,  # ADDED: New parameter
     filter_input="",
     instagram_session_id=""
 ):
@@ -44,6 +45,7 @@ def build_blackbird_command(
         dump_checkbox (bool): Dump HTML output
         proxy_input (str): Proxy URL
         timeout_spinbox (int): Timeout in seconds
+        max_concurrent_requests (int): Max concurrent requests (default: 30)  # ADDED
         filter_input (str): Search filter
         instagram_session_id (str): Instagram session ID
     
@@ -87,7 +89,7 @@ def build_blackbird_command(
     if permuteall_checkbox:
         command.append("--permuteall")
     if AI_checkbox:
-        command.append("--ai")
+        command.append("--ai")  # Corrected: should be --ai not -ai
     if no_nsfw_checkbox:
         command.append("--no-nsfw")
     if no_update_checkbox:
@@ -99,7 +101,7 @@ def build_blackbird_command(
     if json_checkbox:
         command.append("--json")
     if verbose_checkbox:
-        command.append("-v")
+        command.append("-v")  # Note: Both -v and --verbose work according to help
     if dump_checkbox:
         command.append("--dump")
     
@@ -109,6 +111,9 @@ def build_blackbird_command(
     
     # Add timeout
     command.extend(["--timeout", str(timeout_spinbox)])
+    
+    # ADDED: Max concurrent requests
+    command.extend(["--max-concurrent-requests", str(max_concurrent_requests)])
     
     # Add filter if specified
     if filter_input:
