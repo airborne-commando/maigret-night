@@ -58,18 +58,28 @@ def build_blackbird_command(
         if username_input.startswith("file:"):
             file_path = username_input[5:]
             if os.path.exists(file_path):
-                command.extend(["-u", file_path])
+                command.extend(["-uf", file_path])
         else:
-            command.extend(["-U", username_input])
+            # Handle multiple usernames separated by commas
+            usernames = username_input.split(',')
+            for username in usernames:
+                username = username.strip()
+                if username:
+                    command.extend(["-u", username])
     
     # Add email or email file
     if email_input:
         if email_input.startswith("file:"):
             file_path = email_input[5:]
             if os.path.exists(file_path):
-                command.extend(["-e", file_path])
+                command.extend(["-ef", file_path])
         else:
-            command.extend(["-E", email_input])
+            # Handle multiple emails separated by commas
+            emails = email_input.split(',')
+            for email in emails:
+                email = email.strip()
+                if email:
+                    command.extend(["-e", email])
     
     # Add options
     if permute_checkbox:
@@ -95,17 +105,19 @@ def build_blackbird_command(
     
     # Add proxy if specified
     if proxy_input:
-        command.extend(["-p", proxy_input])
+        command.extend(["--proxy", proxy_input])
     
     # Add timeout
-    command.extend(["-t", str(timeout_spinbox)])
+    command.extend(["--timeout", str(timeout_spinbox)])
     
     # Add filter if specified
     if filter_input:
-        command.extend(["-f", filter_input])
+        command.extend(["--filter", filter_input])
     
     # Add Instagram session ID if specified
     if instagram_session_id:
-        command.extend(["-s", instagram_session_id])
+        # Blackbird doesn't have Instagram session ID parameter
+        # This would need to be set as environment variable or config
+        pass
     
     return command
