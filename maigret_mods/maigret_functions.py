@@ -47,6 +47,7 @@ def validate_filter_file(self, file_path):
         self.output_area.append(f"❌ Error reading filter file: {e}")
         return False
 
+# Update the run_crow_search function in maigret_functions.py
 def run_crow_search(gui_instance):
     """Run the Crow (Blackbird) search"""
     # Clear output area
@@ -55,7 +56,17 @@ def run_crow_search(gui_instance):
     # Get username and email for AI analysis
     username = gui_instance.crow_username_input.text().strip()
     email = gui_instance.crow_email_input.text().strip()
-    filter_text = gui_instance.crow_filter_input.text().strip()
+    
+    # Get interactive filters
+    interactive_filters = gui_instance.get_interactive_filters()
+    
+    # Validate interactive filters (optional - filters are not required)
+    errors, enabled_count = gui_instance.validate_interactive_filters()
+    if errors:
+        for error in errors:
+            gui_instance.output_area.append(f"❌ {error}")
+        gui_instance.output_area.append("❌ Please fix filter errors before running.")
+        return
     
     # Check if AI is enabled but no API key
     if gui_instance.crow_ai_checkbox.isChecked():
@@ -162,6 +173,52 @@ def run_crow_search(gui_instance):
         
         gui_instance.output_area.append("=" * 60 + "\n")
     
+# In maigret_functions.py, update the run_crow_search function:
+def run_crow_search(gui_instance):
+    """Run the Crow (Blackbird) search"""
+    # Clear output area
+    gui_instance.output_area.clear()
+    
+    # Get username and email for AI analysis
+    username = gui_instance.crow_username_input.text().strip()
+    email = gui_instance.crow_email_input.text().strip()
+    
+    # Get interactive filters
+    interactive_filters = gui_instance.get_interactive_filters()
+    
+    # Validate interactive filters (optional - filters are not required)
+    errors, enabled_count = gui_instance.validate_interactive_filters()
+    if errors:
+        for error in errors:
+            gui_instance.output_area.append(f"❌ {error}")
+        gui_instance.output_area.append("❌ Please fix filter errors before running.")
+        return
+    
+    # Check if AI is enabled but no API key
+    if gui_instance.crow_ai_checkbox.isChecked():
+        if not gui_instance.check_crow_ai_api_key():
+            return
+    
+    # Initialize TOR if enabled
+    if gui_instance.crow_tor_checkbox.isChecked():
+        try:
+            from .tor_spoofing import TORSpoofer
+        except ImportError:
+            from tor_spoofing import TORSpoofer
+            
+        if not gui_instance.crow_tor_spoofer:
+            gui_instance.crow_tor_spoofer = TORSpoofer(gui_instance)
+        
+        # Set TOR environment variables
+        proxy_url = f"socks5://127.0.0.1:{gui_instance.crow_tor_spoofer.tor_port}"
+        os.environ["HTTP_PROXY"] = proxy_url
+        os.environ["HTTPS_PROXY"] = proxy_url
+        os.environ["ALL_PROXY"] = proxy_url
+        
+        # Verify TOR is working
+        if not gui_instance.verify_tor_connection():
+            gui_instance.output_area.append("⚠️  TOR verification failed, but proceeding...")
+
     # Build Blackbird command
     try:
         try:
@@ -188,7 +245,9 @@ def run_crow_search(gui_instance):
             proxy_input="",
             timeout_spinbox=30,
             max_concurrent_requests=gui_instance.crow_max_concurrent_spinbox.value(),
-            filter_input=filter_text,
+            filter_input="",  # Empty since we removed the original filter
+            interactive_filters=interactive_filters,
+            use_interactive_filters=True,  # Always use interactive filters now
             instagram_session_id=""
         )
         
@@ -199,18 +258,23 @@ def run_crow_search(gui_instance):
         # Convert command parts to string
         command = " ".join(command_parts)
         
+        # Show which filters are being used (if any)
+        if interactive_filters:
+            gui_instance.output_area.append("🔍 Using Filters:")
+            for i, filter_item in enumerate(interactive_filters, 1):
+                gui_instance.output_area.append(f"  {i}. {filter_item}")
+            
+            combined_filter = gui_instance.combine_interactive_filters()
+            if combined_filter:
+                gui_instance.output_area.append(f"📝 Combined filter: {combined_filter}")
+        else:
+            gui_instance.output_area.append("🔍 No filters applied - searching all sites")
+        
         # Show AI info if enabled
         if gui_instance.crow_ai_checkbox.isChecked():
             gui_instance.output_area.append("🤖 AI Analysis Enabled")
             gui_instance.output_area.append("Note: AI analysis will be automatically saved to text file")
             gui_instance.output_area.append("")
-        
-        # Show filter info
-        if filter_text:
-            if filter_text.startswith("file:"):
-                gui_instance.output_area.append(f"📄 Using filter file: {filter_text[5:]}")
-            else:
-                gui_instance.output_area.append(f"🔍 Using filter: {filter_text}")
         
         gui_instance.output_area.append(f"🔧 Command: {command}")
         

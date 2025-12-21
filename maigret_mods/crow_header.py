@@ -5,7 +5,8 @@
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QLineEdit, QPushButton, QCheckBox, QGroupBox, 
-                            QFileDialog, QSpinBox, QGridLayout)  # Added QGridLayout
+                            QFileDialog, QSpinBox, QGridLayout, QScrollArea, 
+                            QFrame, QSizePolicy)  # Added QScrollArea, QFrame, QSizePolicy
 from PyQt6.QtCore import Qt
 
 def create_crow_tab(tab_widget, parent):
@@ -124,27 +125,67 @@ def create_crow_tab(tab_widget, parent):
     # Add the grid to the options layout
     options_layout.addLayout(options_grid)
 
-    # Filter input with file support
-    filter_layout = QHBoxLayout()
-    filter_layout.addWidget(QLabel("Filter:"))
-    parent.crow_filter_input = QLineEdit()
-    parent.crow_filter_input.setPlaceholderText("e.g., name~twitter or cat=social or file:path/to/filters.txt")
-    filter_layout.addWidget(parent.crow_filter_input)
+    # INTERACTIVE FILTER SYSTEM
+    filter_group = QGroupBox("Search Filters")
+    filter_group_layout = QVBoxLayout()
     
-    # Filter file button - NEW
-    parent.crow_filter_file_btn = QPushButton("📁")
-    parent.crow_filter_file_btn.setToolTip("Select filter file")
-    parent.crow_filter_file_btn.clicked.connect(parent.select_crow_filter_file)
-    parent.crow_filter_file_btn.setFixedWidth(40)
-    filter_layout.addWidget(parent.crow_filter_file_btn)
-
+    # Interactive filters section header
+    interactive_filter_label = QLabel("📋 Interactive Filters (Check to enable, uncheck to disable):")
+    interactive_filter_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+    filter_group_layout.addWidget(interactive_filter_label)
+    
+    # Create a scroll area for interactive filters
+    parent.crow_interactive_filters_scroll = QScrollArea()
+    parent.crow_interactive_filters_scroll.setWidgetResizable(True)
+    parent.crow_interactive_filters_scroll.setMaximumHeight(200)
+    parent.crow_interactive_filters_scroll.setFrameShape(QFrame.Shape.NoFrame)
+    
+    # Container widget for interactive filters
+    parent.crow_interactive_filters_container = QWidget()
+    parent.crow_interactive_filters_layout = QVBoxLayout()
+    parent.crow_interactive_filters_layout.setContentsMargins(5, 5, 5, 5)
+    parent.crow_interactive_filters_layout.setSpacing(5)
+    
+    # Store the filter widgets in a list
+    parent.crow_interactive_filter_widgets = []
+    
+    # Create first filter widget
+    parent._create_interactive_filter_widget()
+    
+    parent.crow_interactive_filters_container.setLayout(parent.crow_interactive_filters_layout)
+    parent.crow_interactive_filters_scroll.setWidget(parent.crow_interactive_filters_container)
+    filter_group_layout.addWidget(parent.crow_interactive_filters_scroll)
+    
+    # Interactive filter buttons
+    interactive_buttons_layout = QHBoxLayout()
+    
+    parent.crow_add_filter_btn = QPushButton("➕ Add Filter")
+    parent.crow_add_filter_btn.setToolTip("Add another filter input")
+    parent.crow_add_filter_btn.clicked.connect(parent.add_interactive_filter)
+    interactive_buttons_layout.addWidget(parent.crow_add_filter_btn)
+    
+    parent.crow_remove_filter_btn = QPushButton("➖ Remove Last Filter")
+    parent.crow_remove_filter_btn.setToolTip("Remove the last filter input")
+    parent.crow_remove_filter_btn.clicked.connect(parent.remove_last_interactive_filter)
+    interactive_buttons_layout.addWidget(parent.crow_remove_filter_btn)
+    
+    parent.crow_clear_filters_btn = QPushButton("🗑️ Clear All Filters")
+    parent.crow_clear_filters_btn.setToolTip("Remove all interactive filters")
+    parent.crow_clear_filters_btn.clicked.connect(parent.clear_interactive_filters)
+    interactive_buttons_layout.addWidget(parent.crow_clear_filters_btn)
+    
     # Filter help button
-    filter_help_btn = QPushButton("?")
-    filter_help_btn.setFixedSize(30, 30)
-    filter_help_btn.clicked.connect(parent.show_crow_filter_help)
-    filter_layout.addWidget(filter_help_btn)
-
-    options_layout.addLayout(filter_layout)
+    parent.crow_filter_help_btn = QPushButton("Filter Help ?")
+    parent.crow_filter_help_btn.setFixedWidth(100)
+    parent.crow_filter_help_btn.clicked.connect(parent.show_crow_filter_help)
+    interactive_buttons_layout.addWidget(parent.crow_filter_help_btn)
+    
+    interactive_buttons_layout.addStretch()
+    
+    filter_group_layout.addLayout(interactive_buttons_layout)
+    
+    filter_group.setLayout(filter_group_layout)
+    options_layout.addWidget(filter_group)
 
     options_group.setLayout(options_layout)
     crow_layout.addWidget(options_group)

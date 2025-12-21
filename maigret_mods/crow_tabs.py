@@ -1,9 +1,11 @@
-# crow_tabs.py - Updated with relative imports
+# crow_tabs.py - Updated with relative imports and proper Qt imports
 from .workers import CrowWorker
 from .tor_spoofing import TORSpoofer
 from .command_builder import build_blackbird_command
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLineEdit, 
-                            QLabel, QDialogButtonBox, QMessageBox, QFileDialog)
+                            QLabel, QDialogButtonBox, QMessageBox, QFileDialog,
+                            QWidget, QCheckBox, QHBoxLayout, QPushButton)  # Added missing imports
+from PyQt6.QtCore import Qt
 import json
 import os
 import sys
@@ -17,6 +19,7 @@ class CrowTabMethods:
         self.crow_worker = None
         self.crow_tor_spoofer = None
         self.crow_ai_api_key = None
+        self.crow_interactive_filter_widgets = []  # Initialize the list
     
     # Note: The breach functions (process_single_email, process_single_username, etc.)
     # will be passed in from the main file, so we don't need to import them here
@@ -24,6 +27,138 @@ class CrowTabMethods:
     # ================================================================
     # CROW TAB METHODS
     # ================================================================
+
+    def _create_interactive_filter_widget(self, filter_text="", enabled=True):
+        """Create a single interactive filter widget"""
+        filter_widget = QWidget()
+        filter_layout = QHBoxLayout()
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Checkbox to enable/disable this filter
+        filter_checkbox = QCheckBox()
+        filter_checkbox.setChecked(enabled)
+        filter_checkbox.setToolTip("Check to include this filter in the search")
+        filter_layout.addWidget(filter_checkbox)
+        
+        # Filter input field
+        filter_input = QLineEdit()
+        filter_input.setPlaceholderText("e.g., name~twitter, cat=social, or file:path/to/filters.txt")
+        filter_input.setText(filter_text)
+        filter_input.setToolTip("Enter filter expression or file path")
+        filter_layout.addWidget(filter_input)
+        
+        # File button for this filter
+        filter_file_btn = QPushButton("📁")
+        filter_file_btn.setToolTip("Select filter file for this filter")
+        filter_file_btn.setFixedWidth(40)
+        filter_file_btn.clicked.connect(lambda: self._select_filter_file_for_widget(filter_input))
+        filter_layout.addWidget(filter_file_btn)
+        
+        # Remove button for this specific filter
+        remove_btn = QPushButton("✖")
+        remove_btn.setToolTip("Remove this filter")
+        remove_btn.setFixedSize(30, 30)
+        remove_btn.clicked.connect(lambda: self._remove_specific_filter_widget(filter_widget))
+        filter_layout.addWidget(remove_btn)
+        
+        filter_widget.setLayout(filter_layout)
+        
+        # Store references
+        filter_widget.checkbox = filter_checkbox
+        filter_widget.input = filter_input
+        filter_widget.file_btn = filter_file_btn
+        filter_widget.remove_btn = remove_btn
+        
+        self.crow_interactive_filter_widgets.append(filter_widget)
+        self.crow_interactive_filters_layout.addWidget(filter_widget)
+        
+        return filter_widget
+
+    def _select_filter_file_for_widget(self, filter_input):
+        """Select filter file for a specific filter widget"""
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Filter File", 
+            "", 
+            "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
+        )
+        if file_name:
+            if self.validate_filter_file(file_name):
+                filter_input.setText(f"file:{file_name}")
+
+    def _remove_specific_filter_widget(self, widget):
+        """Remove a specific filter widget"""
+        if widget in self.crow_interactive_filter_widgets:
+            self.crow_interactive_filter_widgets.remove(widget)
+            widget.setParent(None)
+            widget.deleteLater()
+            
+            # Update UI if no filters left
+            if not self.crow_interactive_filter_widgets:
+                self._create_interactive_filter_widget()
+
+    def add_interactive_filter(self):
+        """Add a new interactive filter widget"""
+        self._create_interactive_filter_widget()
+
+    def remove_last_interactive_filter(self):
+        """Remove the last interactive filter widget"""
+        if self.crow_interactive_filter_widgets:
+            last_widget = self.crow_interactive_filter_widgets[-1]
+            self._remove_specific_filter_widget(last_widget)
+
+    def clear_interactive_filters(self):
+        """Clear all interactive filters"""
+        # Remove all widgets
+        for widget in self.crow_interactive_filter_widgets[:]:
+            self._remove_specific_filter_widget(widget)
+        
+        # Add one empty filter widget back
+        self._create_interactive_filter_widget()
+
+    def get_interactive_filters(self):
+        """Get all enabled interactive filters as a list"""
+        filters = []
+        for widget in self.crow_interactive_filter_widgets:
+            if widget.checkbox.isChecked():
+                filter_text = widget.input.text().strip()
+                if filter_text:
+                    filters.append(filter_text)
+        return filters
+
+    def combine_interactive_filters(self):
+        """Combine all enabled interactive filters into a single filter string"""
+        filters = self.get_interactive_filters()
+        if not filters:
+            return ""
+        
+        # Combine filters with "and"
+        combined = " and ".join(filters)
+        return combined
+
+    # In crow_tabs.py, update the validate_interactive_filters method:
+    def validate_interactive_filters(self):
+        """Validate all interactive filters and return any errors"""
+        errors = []
+        enabled_count = 0
+        
+        for i, widget in enumerate(self.crow_interactive_filter_widgets):
+            if widget.checkbox.isChecked():
+                filter_text = widget.input.text().strip()
+                if not filter_text:
+                    errors.append(f"Filter #{i+1} is enabled but empty")
+                else:
+                    # Check if it's a file and validate it
+                    if filter_text.startswith("file:"):
+                        file_path = filter_text[5:]
+                        if not os.path.exists(file_path):
+                            errors.append(f"Filter #{i+1}: File not found: {file_path}")
+                enabled_count += 1
+        
+        # REMOVED: No longer require at least one filter
+        # Filters are optional
+        
+        return errors, enabled_count
 
     def validate_filter_file(self, file_path):
         """Validate filter file format"""
@@ -53,20 +188,147 @@ class CrowTabMethods:
             self.output_area.append(f"❌ Error reading filter file: {e}")
             return False
 
-    # Also update the select_crow_filter_file method to use validation:
-    def select_crow_filter_file(self):
-        """Select filter file for Crow search and validate it"""
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Select Filter File", 
-            "", 
-            "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
-        )
+    # Update the save_crow_settings method to save interactive filters:
+    def save_crow_settings(self):
+        """Save Crow-specific settings including interactive filters"""
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Crow Settings", "", "JSON Files (*.json)")
         if file_name:
-            # Validate the file
-            if self.validate_filter_file(file_name):
-                self.crow_filter_input.setText(f"file:{file_name}")
+            if not file_name.endswith('.json'):
+                file_name += '.json'
 
+            # Save interactive filters
+            interactive_filters_data = []
+            for widget in self.crow_interactive_filter_widgets:
+                interactive_filters_data.append({
+                    "text": widget.input.text(),
+                    "enabled": widget.checkbox.isChecked()
+                })
+
+            settings = {
+                "crow_username_input": self.crow_username_input.text(),
+                "crow_email_input": self.crow_email_input.text(),
+                "crow_ai_checkbox": self.crow_ai_checkbox.isChecked(),
+                "crow_tor_checkbox": self.crow_tor_checkbox.isChecked(),
+                "crow_permuteall_checkbox": self.crow_permuteall_checkbox.isChecked(),
+                "crow_no_update_checkbox": self.crow_no_update_checkbox.isChecked(),
+                "crow_max_concurrent_spinbox": self.crow_max_concurrent_spinbox.value(),
+                "crow_permute_checkbox": self.crow_permute_checkbox.isChecked(),
+                "crow_no_nsfw_checkbox": self.crow_no_nsfw_checkbox.isChecked(),
+                "crow_csv_checkbox": self.crow_csv_checkbox.isChecked(),
+                "crow_verbose_checkbox": self.crow_verbose_checkbox.isChecked(),
+                "crow_pdf_checkbox": self.crow_pdf_checkbox.isChecked(),
+                "crow_json_checkbox": self.crow_json_checkbox.isChecked(),
+                "crow_dump_checkbox": self.crow_dump_checkbox.isChecked(),
+                "crow_breach_username_checkbox": self.crow_breach_username_checkbox.isChecked(),
+                "crow_breach_email_checkbox": self.crow_breach_email_checkbox.isChecked(),
+                "crow_interactive_filters": interactive_filters_data,
+                "crow_ai_api_key": self.crow_ai_api_key if hasattr(self, 'crow_ai_api_key') else ''
+            }
+
+            with open(file_name, 'w') as f:
+                json.dump(settings, f, indent=4)
+            
+            self.output_area.append(f"💾 Crow settings saved to: {file_name}")
+
+    # Update the load_crow_settings method to load interactive filters:
+    def load_crow_settings(self):
+        """Load Crow-specific settings including interactive filters"""
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load Crow Settings", "", "JSON Files (*.json)")
+        if file_name:
+            try:
+                with open(file_name, 'r') as f:
+                    settings = json.load(f)
+
+                # Load basic settings
+                self.crow_username_input.setText(settings.get("crow_username_input", ""))
+                self.crow_email_input.setText(settings.get("crow_email_input", ""))
+                self.crow_ai_checkbox.setChecked(settings.get("crow_ai_checkbox", False))
+                self.crow_tor_checkbox.setChecked(settings.get("crow_tor_checkbox", False))
+                self.crow_permute_checkbox.setChecked(settings.get("crow_permute_checkbox", False))
+                self.crow_no_nsfw_checkbox.setChecked(settings.get("crow_no_nsfw_checkbox", False))
+                self.crow_csv_checkbox.setChecked(settings.get("crow_csv_checkbox", False))
+                self.crow_verbose_checkbox.setChecked(settings.get("crow_verbose_checkbox", False))
+                self.crow_pdf_checkbox.setChecked(settings.get("crow_pdf_checkbox", False))
+                self.crow_permuteall_checkbox.setChecked(settings.get("crow_permuteall_checkbox", False))
+                self.crow_no_update_checkbox.setChecked(settings.get("crow_no_update_checkbox", False))
+                self.crow_max_concurrent_spinbox.setValue(settings.get("crow_max_concurrent_spinbox", 30))
+                self.crow_json_checkbox.setChecked(settings.get("crow_json_checkbox", False))
+                self.crow_dump_checkbox.setChecked(settings.get("crow_dump_checkbox", False))
+                self.crow_breach_username_checkbox.setChecked(settings.get("crow_breach_username_checkbox", False))
+                self.crow_breach_email_checkbox.setChecked(settings.get("crow_breach_email_checkbox", False))
+                
+                if settings.get("crow_ai_api_key"):
+                    self.crow_ai_api_key = settings["crow_ai_api_key"]
+                    os.environ["BLACKBIRD_AI_API_KEY"] = settings["crow_ai_api_key"]
+                
+                # Clear existing interactive filters
+                for widget in self.crow_interactive_filter_widgets[:]:
+                    self._remove_specific_filter_widget(widget)
+                
+                # Load interactive filters
+                interactive_filters = settings.get("crow_interactive_filters", [])
+                for filter_data in interactive_filters:
+                    self._create_interactive_filter_widget(
+                        filter_text=filter_data.get("text", ""),
+                        enabled=filter_data.get("enabled", True)
+                    )
+                
+                self.output_area.append(f"📂 Crow settings loaded from: {file_name}")
+                self.output_area.append(f"📋 Loaded {len(interactive_filters)} interactive filter(s)")
+                
+            except Exception as e:
+                self.output_area.append(f"❌ Error loading settings: {e}")
+
+    def show_crow_filter_help(self):
+        """Show filter help for Crow with interactive filter instructions"""
+        help_text = """
+        FILTER HELP - CROW SEARCH FILTERS
+        ==================================
+        
+        FILTER SYNTAX:
+        --------------
+        Properties: name, cat, uri_check, e_code, e_string, m_string, m_code
+        Operators: =, ~, >, <, >=, <=, !=
+        
+        Examples:
+        • name~twitter
+        • cat=social
+        • e_code>200 and name~facebook
+        • cat!=adult
+        
+        FILE FILTERS:
+        -------------
+        Use 'file:/path/to/filters.txt' to load filters from a file
+        File format: One filter per line
+        Multiple filters on same line: Separate with 'and'
+        
+        INTERACTIVE FILTERS:
+        --------------------
+        1. Check/uncheck each filter's checkbox to enable/disable it
+        2. Click "➕ Add Filter" to add more filter inputs
+        3. Use 📁 button on each filter to load from file
+        4. Use ✖ button to remove specific filters
+        
+        FILTER COMBINATION:
+        -------------------
+        • When multiple filters are enabled, they are combined with "and"
+        • Example: Filter1: name~twitter, Filter2: cat=social
+          Result: name~twitter and cat=social
+        
+        OPTIONAL FILTERS:
+        -----------------
+        • Filters are completely optional - you can run searches without any filters
+        • Leave all filters unchecked to search without filtering
+        • Empty filters (enabled but no text) will cause an error
+        
+        TIPS:
+        -----
+        • Leave filters unchecked to temporarily disable them
+        • Use file filters for complex or frequently used filters
+        • Save your filter setups for later use
+        """
+        
+        QMessageBox.information(self, "Crow Filter Help", help_text)
 
     def verify_tor_connection(self):
         """Verify TOR connection status"""
@@ -111,17 +373,6 @@ class CrowTabMethods:
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Email File")
         if file_name:
             self.crow_email_input.setText(f"file:{file_name}")
-
-    def select_crow_filter_file(self):
-        """Select filter file for Crow search - NEW METHOD"""
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Select Filter File", 
-            "", 
-            "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
-        )
-        if file_name:
-            self.crow_filter_input.setText(f"file:{file_name}")
 
     def setup_crow_ai_api_key(self):
         """Setup AI API key for Crow with proper TOR masking"""
@@ -398,97 +649,6 @@ class CrowTabMethods:
             except ValueError:
                 QMessageBox.warning(self, "Invalid Input", "Port numbers must be integers.")
 
-    def show_crow_filter_help(self):
-        """Show filter help for Crow with file input instructions"""
-        QMessageBox.information(self, "Crow Filter Help",
-                              "Create custom search filters for Crow:\n\n"
-                              "Properties: name, cat, uri_check, e_code, e_string, m_string, m_code\n"
-                              "Operators: =, ~, >, <, >=, <=, !=\n"
-                              "Multiple filters: Use 'and' to combine (e.g., name~twitter and cat=social)\n\n"
-                              "File Input:\n"
-                              "Use 'file:/path/to/filters.txt' to load filters from a file\n"
-                              "File Format: One filter per line\n"
-                              "Multiple filters on same line should be separated by 'and'\n\n"
-                              "Examples in file:\n"
-                              "name~twitter\n"
-                              "cat=social\n"
-                              "e_code>200 and name~facebook\n"
-                              "cat!=adult\n\n"
-                              "File Selection:\n"
-                              "• Click the 📁 button next to Filter input\n"
-                              "• Or type 'file:/path/to/filters.txt' directly")
-
-    def save_crow_settings(self):
-        """Save Crow-specific settings"""
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Crow Settings", "", "JSON Files (*.json)")
-        if file_name:
-            if not file_name.endswith('.json'):
-                file_name += '.json'
-
-            settings = {
-                "crow_username_input": self.crow_username_input.text(),
-                "crow_email_input": self.crow_email_input.text(),
-                "crow_filter_input": self.crow_filter_input.text(),  # Save filter input
-                "crow_ai_checkbox": self.crow_ai_checkbox.isChecked(),
-                "crow_tor_checkbox": self.crow_tor_checkbox.isChecked(),
-                "crow_permuteall_checkbox": self.crow_permuteall_checkbox.isChecked(),
-                "crow_no_update_checkbox": self.crow_no_update_checkbox.isChecked(),
-                "crow_max_concurrent_spinbox": self.crow_max_concurrent_spinbox.value(),
-                "crow_permute_checkbox": self.crow_permute_checkbox.isChecked(),
-                "crow_no_nsfw_checkbox": self.crow_no_nsfw_checkbox.isChecked(),
-                "crow_csv_checkbox": self.crow_csv_checkbox.isChecked(),
-                "crow_verbose_checkbox": self.crow_verbose_checkbox.isChecked(),
-                "crow_pdf_checkbox": self.crow_pdf_checkbox.isChecked(),
-                "crow_json_checkbox": self.crow_json_checkbox.isChecked(),
-                "crow_dump_checkbox": self.crow_dump_checkbox.isChecked(),
-                "crow_breach_username_checkbox": self.crow_breach_username_checkbox.isChecked(),
-                "crow_breach_email_checkbox": self.crow_breach_email_checkbox.isChecked(),
-                "crow_ai_api_key": self.crow_ai_api_key if hasattr(self, 'crow_ai_api_key') else ''
-            }
-
-            with open(file_name, 'w') as f:
-                json.dump(settings, f, indent=4)
-            
-            self.output_area.append(f"💾 Crow settings saved to: {file_name}")
-
-    def load_crow_settings(self):
-        """Load Crow-specific settings"""
-        file_name, _ = QFileDialog.getOpenFileName(self, "Load Crow Settings", "", "JSON Files (*.json)")
-        if file_name:
-            try:
-                with open(file_name, 'r') as f:
-                    settings = json.load(f)
-
-                self.crow_username_input.setText(settings.get("crow_username_input", ""))
-                self.crow_email_input.setText(settings.get("crow_email_input", ""))
-                self.crow_filter_input.setText(settings.get("crow_filter_input", ""))  # Load filter input
-                self.crow_ai_checkbox.setChecked(settings.get("crow_ai_checkbox", False))
-                self.crow_tor_checkbox.setChecked(settings.get("crow_tor_checkbox", False))
-                self.crow_permute_checkbox.setChecked(settings.get("crow_permute_checkbox", False))
-                self.crow_no_nsfw_checkbox.setChecked(settings.get("crow_no_nsfw_checkbox", False))
-                self.crow_csv_checkbox.setChecked(settings.get("crow_csv_checkbox", False))
-                self.crow_verbose_checkbox.setChecked(settings.get("crow_verbose_checkbox", False))
-                self.crow_pdf_checkbox.setChecked(settings.get("crow_pdf_checkbox", False))
-                self.crow_permuteall_checkbox.setChecked(settings.get("crow_permuteall_checkbox", False))
-                self.crow_no_update_checkbox.setChecked(settings.get("crow_no_update_checkbox", False))
-                self.crow_max_concurrent_spinbox.setValue(settings.get("crow_max_concurrent_spinbox", 30))
-                self.crow_json_checkbox.setChecked(settings.get("crow_json_checkbox", False))
-                self.crow_dump_checkbox.setChecked(settings.get("crow_dump_checkbox", False))
-                self.crow_breach_username_checkbox.setChecked(settings.get("crow_breach_username_checkbox", False))
-                self.crow_breach_email_checkbox.setChecked(settings.get("crow_breach_email_checkbox", False))
-                
-                if settings.get("crow_ai_api_key"):
-                    self.crow_ai_api_key = settings["crow_ai_api_key"]
-                    os.environ["BLACKBIRD_AI_API_KEY"] = settings["crow_ai_api_key"]
-                
-                self.output_area.append(f"📂 Crow settings loaded from: {file_name}")
-                
-            except Exception as e:
-                self.output_area.append(f"❌ Error loading settings: {e}")
-
-    # This method needs to be updated in the main file, not here
-    # The breach functions will be called from the main file
-
     def on_ai_file_saved(self, file_path):
         """Handle when AI analysis file is saved - MODIFIED: No longer asks to open file"""
         self.output_area.append(f"💾 AI results saved to: {file_path}")
@@ -504,7 +664,7 @@ class CrowTabMethods:
         
         # Check config files
         config_paths = [
-            os.expanduser("~/.ai_key.json"),
+            os.path.expanduser("~/.ai_key.json"),
             ".ai_key.json",
         ]
         

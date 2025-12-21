@@ -53,7 +53,7 @@ from .workers import CrowWorker, MaigretWorker, MaigretWebWorker, DashboardWorke
 from .tor_spoofing import TORSpoofer
 from .crow_header import create_crow_tab
 from .crow_tabs import CrowTabMethods
-from .command_builder import build_blackbird_command
+from .command_builder import build_blackbird_command, combine_filters  # ADDED combine_filters
 
 __all__ = [
     'load_css',
@@ -97,5 +97,6 @@ __all__ = [
     'on_maigret_finished',
     'stop_maigret',
     'append_output',
-    'build_blackbird_command'
+    'build_blackbird_command',
+    'combine_filters'  # ADDED
 ]
