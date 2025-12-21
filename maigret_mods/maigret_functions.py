@@ -174,6 +174,8 @@ def run_crow_search(gui_instance):
         gui_instance.output_area.append("=" * 60 + "\n")
     
 # In maigret_functions.py, update the run_crow_search function:
+# In maigret_functions.py - KEEP ONLY THIS VERSION of run_crow_search:
+
 def run_crow_search(gui_instance):
     """Run the Crow (Blackbird) search"""
     # Clear output area
@@ -219,6 +221,110 @@ def run_crow_search(gui_instance):
         if not gui_instance.verify_tor_connection():
             gui_instance.output_area.append("⚠️  TOR verification failed, but proceeding...")
 
+    # ================================================================
+    # BREACH.VIP USERNAME SEARCH HOOK
+    # ================================================================
+    if gui_instance.crow_breach_username_checkbox.isChecked() and username:
+        gui_instance.output_area.append("\n" + "=" * 60)
+        gui_instance.output_area.append("🔍 BREACH.VIP USERNAME SEARCH HOOK")
+        gui_instance.output_area.append("=" * 60)
+        
+        if username.startswith("file:"):
+            file_path = username[5:]
+            if os.path.exists(file_path):
+                gui_instance.output_area.append(f"Searching Breach.vip for usernames from file: {os.path.basename(file_path)}")
+                try:
+                    from .breach_vip_username import process_username_file
+                except ImportError:
+                    from breach_vip_username import process_username_file
+                process_username_file(file_path, gui_instance.output_area)
+            else:
+                gui_instance.output_area.append(f"❌ File not found: {file_path}")
+        else:
+            usernames = [u.strip() for u in username.split(',') if u.strip()]
+            if len(usernames) == 1:
+                gui_instance.output_area.append(f"Searching Breach.vip for username: {usernames[0]}")
+                try:
+                    from .breach_vip_username import process_single_username
+                except ImportError:
+                    from breach_vip_username import process_single_username
+                process_single_username(usernames[0], gui_instance.output_area)
+            else:
+                gui_instance.output_area.append(f"Searching Breach.vip for {len(usernames)} usernames")
+                for username_item in usernames:
+                    gui_instance.output_area.append(f"  • Processing: {username_item}")
+                    try:
+                        from .breach_vip_username import process_single_username
+                    except ImportError:
+                        from breach_vip_username import process_single_username
+                    process_single_username(username_item, gui_instance.output_area)
+        
+        gui_instance.output_area.append("=" * 60 + "\n")
+
+    # ================================================================
+    # BREACH.VIP EMAIL SEARCH HOOK
+    # ================================================================
+    if gui_instance.crow_breach_email_checkbox.isChecked() and email:
+        gui_instance.output_area.append("\n" + "=" * 60)
+        gui_instance.output_area.append("📧 BREACH.VIP EMAIL SEARCH HOOK")
+        gui_instance.output_area.append("=" * 60)
+        
+        if email.startswith("file:"):
+            file_path = email[5:]
+            if os.path.exists(file_path):
+                gui_instance.output_area.append(f"Searching Breach.vip for emails from file: {os.path.basename(file_path)}")
+                try:
+                    from .breach_vip import process_email_file
+                except ImportError:
+                    from breach_vip import process_email_file
+                process_email_file(file_path, gui_instance.output_area)
+            else:
+                gui_instance.output_area.append(f"❌ File not found: {file_path}")
+        else:
+            emails = [e.strip() for e in email.split(',') if e.strip()]
+            if len(emails) == 1:
+                gui_instance.output_area.append(f"Searching Breach.vip for email: {emails[0]}")
+                try:
+                    from .breach_vip import process_single_email
+                except ImportError:
+                    from breach_vip import process_single_email
+                process_single_email(emails[0], gui_instance.output_area)
+            else:
+                gui_instance.output_area.append(f"Searching Breach.vip for {len(emails)} emails")
+                for email_item in emails:
+                    gui_instance.output_area.append(f"  • Processing: {email_item}")
+                    try:
+                        from .breach_vip import process_single_email
+                    except ImportError:
+                        from breach_vip import process_single_email
+                    process_single_email(email_item, gui_instance.output_area)
+        
+        gui_instance.output_area.append("=" * 60 + "\n")
+    
+    # ================================================================
+    # BLACKBIRD SEARCH (only run if we have search parameters)
+    # ================================================================
+    # Only run Blackbird if we have usernames or emails to search
+    run_blackbird = False
+    if username and not username.startswith("file:"):
+        run_blackbird = True
+    elif username.startswith("file:"):
+        file_path = username[5:]
+        if os.path.exists(file_path):
+            run_blackbird = True
+    
+    if not run_blackbird and email and not email.startswith("file:"):
+        run_blackbird = True
+    elif not run_blackbird and email.startswith("file:"):
+        file_path = email[5:]
+        if os.path.exists(file_path):
+            run_blackbird = True
+    
+    if not run_blackbird:
+        gui_instance.output_area.append("\n⚠️  No usernames or emails provided for Blackbird search")
+        gui_instance.output_area.append("✅ Breach.vip search completed (if enabled)")
+        return
+    
     # Build Blackbird command
     try:
         try:
