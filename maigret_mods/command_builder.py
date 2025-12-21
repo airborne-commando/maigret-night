@@ -105,11 +105,9 @@ def build_blackbird_command(
                 return None
         else:
             # Handle multiple usernames separated by commas
-            usernames = username_input.split(',')
-            for username in usernames:
-                username = username.strip()
-                if username:
-                    command.extend(["-u", username])
+            usernames = [u.strip() for u in username_input.split(',') if u.strip()]
+            if usernames:
+                command.extend(["-u"] + usernames)
     
     # Add email or email file
     if email_input:
@@ -122,55 +120,48 @@ def build_blackbird_command(
                 return None
         else:
             # Handle multiple emails separated by commas
-            emails = email_input.split(',')
-            for email in emails:
-                email = email.strip()
-                if email:
-                    command.extend(["-e", email])
+            emails = [e.strip() for e in email_input.split(',') if e.strip()]
+            if emails:
+                command.extend(["-e"] + emails)
     
     # Handle filters - always use interactive filters now (if provided)
-    filter_to_use = ""
+    filter_string = ""
     
     if interactive_filters:
-        # Use interactive filters
-        filter_to_use = combine_filters(interactive_filters)
-    
-    if filter_to_use:
-        if filter_to_use.startswith("file:"):
-            file_path = filter_to_use[5:]
-            if os.path.exists(file_path):
-                try:
-                    # Read the filter file
-                    with open(file_path, 'r') as f:
-                        filters_content = f.read().strip()
-                    
-                    if filters_content:
-                        # Process multiple lines
-                        lines = [line.strip() for line in filters_content.split('\n') if line.strip()]
-                        if lines:
-                            if len(lines) == 1:
-                                filter_value = lines[0]
-                            else:
-                                # Combine with "and"
-                                combined_filters = " and ".join(lines)
-                                filter_value = combined_filters
-                            
-                            command.extend(["--filter", filter_value])
-                except FileNotFoundError:
+        # Process all interactive filters
+        all_filter_parts = []
+        
+        for filter_item in interactive_filters:
+            if filter_item.startswith("file:"):
+                file_path = filter_item[5:]
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r') as f:
+                            content = f.read().strip()
+                        if content:
+                            lines = [line.strip() for line in content.split('\n') if line.strip()]
+                            all_filter_parts.extend(lines)
+                    except Exception as e:
+                        print(f"❌ Error reading filter file {file_path}: {e}")
+                        # If can't read, skip this filter
+                        continue
+                else:
                     print(f"❌ Filter file not found: {file_path}")
-                    return None
-                except Exception as e:
-                    print(f"❌ Error reading filter file: {e}")
-                    return None
+                    continue
             else:
-                print(f"❌ Filter file not found: {file_path}")
-                return None
-        else:
-            # Direct filter text
-            command.extend(["--filter", filter_to_use])
-    else:
-        # No filters specified - this is OK, Blackbird will search all sites
-        pass
+                # Direct filter expression
+                all_filter_parts.append(filter_item)
+        
+        # Combine all filter parts
+        if all_filter_parts:
+            if len(all_filter_parts) == 1:
+                filter_string = all_filter_parts[0]
+            else:
+                filter_string = " and ".join(all_filter_parts)
+    
+    # Add the filter to command if we have one
+    if filter_string:
+        command.extend(["--filter", filter_string])
     
     # Add options
     if permute_checkbox:

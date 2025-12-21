@@ -500,8 +500,9 @@ class CrowTabMethods:
         try:
             # Try to use proxychains if available
             command = ["proxychains", "python", "blackbird.py", "--setup-ai"]
+
             
-            self.crow_worker = CrowWorker(" ".join(command), is_setup_ai=True)
+            self.crow_worker = CrowWorker(command, is_setup_ai=True)
             self.crow_worker.output_signal.connect(self.update_crow_output)
             self.crow_worker.finished_signal.connect(self.on_crow_setup_finished)
             self.crow_worker.start()
@@ -544,7 +545,7 @@ class CrowTabMethods:
             command = ["python", "blackbird.py", "--setup-ai"]
             
             # Create and start the worker for setup
-            self.crow_worker = CrowWorker(" ".join(command), is_setup_ai=True)
+            self.crow_worker = CrowWorker(command, is_setup_ai=True)
             self.crow_worker.output_signal.connect(self.update_crow_output)
             self.crow_worker.finished_signal.connect(self.on_crow_setup_finished)
             self.crow_worker.start()

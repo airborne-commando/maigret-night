@@ -56,9 +56,14 @@ class CrowWorker(QThread):
     finished_signal = pyqtSignal()
     ai_file_saved = pyqtSignal(str)  # Signal when AI file is saved
     
-    def __init__(self, command, needs_ai_confirmation=False, is_setup_ai=False, tor_spoofer=None, username="", email=""):
+    def __init__(self, command_parts, needs_ai_confirmation=False, is_setup_ai=False, tor_spoofer=None, username="", email=""):
         super().__init__()
-        self.command = command
+        # Accept command as a list, not a string
+        if isinstance(command_parts, str):
+            # If it's a string, split it (for backward compatibility)
+            self.command_parts = command_parts.split()
+        else:
+            self.command_parts = command_parts
         self.process = None
         self.needs_ai_confirmation = needs_ai_confirmation
         self.is_setup_ai = is_setup_ai
@@ -88,17 +93,17 @@ class CrowWorker(QThread):
             os.environ["PYTHONHTTPSVERIFY"] = "0"
             ssl._create_default_https_context = ssl._create_unverified_context
         
-        # Create process with proper signal handling
+        # Create process with proper signal handling - NO shell=True!
         try:
             self.process = subprocess.Popen(
-                self.command, 
+                self.command_parts,  # Use the list directly
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
                 stdin=subprocess.PIPE,
                 text=True, 
-                shell=True,
+                shell=False,  # Important: No shell!
                 bufsize=1,
-                preexec_fn=os.setsid if hasattr(os, 'setsid') else None  # Create process group
+                preexec_fn=os.setsid if hasattr(os, 'setsid') else None
             )
         except Exception as e:
             self.output_signal.emit(f"❌ Failed to start process: {e}")
