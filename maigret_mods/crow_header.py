@@ -124,12 +124,19 @@ def create_crow_tab(tab_widget, parent):
     # Add the grid to the options layout
     options_layout.addLayout(options_grid)
 
-    # Filter input
+    # Filter input with file support
     filter_layout = QHBoxLayout()
     filter_layout.addWidget(QLabel("Filter:"))
     parent.crow_filter_input = QLineEdit()
-    parent.crow_filter_input.setPlaceholderText("e.g., name~twitter or cat=social")
+    parent.crow_filter_input.setPlaceholderText("e.g., name~twitter or cat=social or file:path/to/filters.txt")
     filter_layout.addWidget(parent.crow_filter_input)
+    
+    # Filter file button - NEW
+    parent.crow_filter_file_btn = QPushButton("📁")
+    parent.crow_filter_file_btn.setToolTip("Select filter file")
+    parent.crow_filter_file_btn.clicked.connect(parent.select_crow_filter_file)
+    parent.crow_filter_file_btn.setFixedWidth(40)
+    filter_layout.addWidget(parent.crow_filter_file_btn)
 
     # Filter help button
     filter_help_btn = QPushButton("?")

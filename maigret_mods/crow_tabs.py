@@ -25,6 +25,49 @@ class CrowTabMethods:
     # CROW TAB METHODS
     # ================================================================
 
+    def validate_filter_file(self, file_path):
+        """Validate filter file format"""
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read().strip()
+                
+            if not content:
+                self.output_area.append("⚠️ Filter file is empty")
+                return False
+            
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            self.output_area.append(f"✅ Loaded {len(lines)} filter(s) from file")
+            
+            # Show preview of filters
+            for i, line in enumerate(lines[:3]):  # Show first 3 filters as preview
+                self.output_area.append(f"   Filter {i+1}: {line}")
+            if len(lines) > 3:
+                self.output_area.append(f"   ... and {len(lines)-3} more filter(s)")
+            
+            return True
+            
+        except FileNotFoundError:
+            self.output_area.append(f"❌ Filter file not found: {file_path}")
+            return False
+        except Exception as e:
+            self.output_area.append(f"❌ Error reading filter file: {e}")
+            return False
+
+    # Also update the select_crow_filter_file method to use validation:
+    def select_crow_filter_file(self):
+        """Select filter file for Crow search and validate it"""
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Filter File", 
+            "", 
+            "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
+        )
+        if file_name:
+            # Validate the file
+            if self.validate_filter_file(file_name):
+                self.crow_filter_input.setText(f"file:{file_name}")
+
+
     def verify_tor_connection(self):
         """Verify TOR connection status"""
         if not self.crow_tor_spoofer:
@@ -68,6 +111,17 @@ class CrowTabMethods:
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Email File")
         if file_name:
             self.crow_email_input.setText(f"file:{file_name}")
+
+    def select_crow_filter_file(self):
+        """Select filter file for Crow search - NEW METHOD"""
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Filter File", 
+            "", 
+            "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
+        )
+        if file_name:
+            self.crow_filter_input.setText(f"file:{file_name}")
 
     def setup_crow_ai_api_key(self):
         """Setup AI API key for Crow with proper TOR masking"""
@@ -345,15 +399,24 @@ class CrowTabMethods:
                 QMessageBox.warning(self, "Invalid Input", "Port numbers must be integers.")
 
     def show_crow_filter_help(self):
-        """Show filter help for Crow"""
+        """Show filter help for Crow with file input instructions"""
         QMessageBox.information(self, "Crow Filter Help",
                               "Create custom search filters for Crow:\n\n"
                               "Properties: name, cat, uri_check, e_code, e_string, m_string, m_code\n"
-                              "Operators: =, ~, >, <, >=, <=, !=\n\n"
-                              "Examples:\n"
-                              "• name~twitter\n"
-                              "• cat=social\n"
-                              "• e_code>200 and name~facebook")
+                              "Operators: =, ~, >, <, >=, <=, !=\n"
+                              "Multiple filters: Use 'and' to combine (e.g., name~twitter and cat=social)\n\n"
+                              "File Input:\n"
+                              "Use 'file:/path/to/filters.txt' to load filters from a file\n"
+                              "File Format: One filter per line\n"
+                              "Multiple filters on same line should be separated by 'and'\n\n"
+                              "Examples in file:\n"
+                              "name~twitter\n"
+                              "cat=social\n"
+                              "e_code>200 and name~facebook\n"
+                              "cat!=adult\n\n"
+                              "File Selection:\n"
+                              "• Click the 📁 button next to Filter input\n"
+                              "• Or type 'file:/path/to/filters.txt' directly")
 
     def save_crow_settings(self):
         """Save Crow-specific settings"""
@@ -365,11 +428,12 @@ class CrowTabMethods:
             settings = {
                 "crow_username_input": self.crow_username_input.text(),
                 "crow_email_input": self.crow_email_input.text(),
+                "crow_filter_input": self.crow_filter_input.text(),  # Save filter input
                 "crow_ai_checkbox": self.crow_ai_checkbox.isChecked(),
                 "crow_tor_checkbox": self.crow_tor_checkbox.isChecked(),
-                "crow_permuteall_checkbox": self.crow_permuteall_checkbox.isChecked(),  # ADDED
-                "crow_no_update_checkbox": self.crow_no_update_checkbox.isChecked(),    # ADDED
-                "crow_max_concurrent_spinbox": self.crow_max_concurrent_spinbox.value(),  # ADDED
+                "crow_permuteall_checkbox": self.crow_permuteall_checkbox.isChecked(),
+                "crow_no_update_checkbox": self.crow_no_update_checkbox.isChecked(),
+                "crow_max_concurrent_spinbox": self.crow_max_concurrent_spinbox.value(),
                 "crow_permute_checkbox": self.crow_permute_checkbox.isChecked(),
                 "crow_no_nsfw_checkbox": self.crow_no_nsfw_checkbox.isChecked(),
                 "crow_csv_checkbox": self.crow_csv_checkbox.isChecked(),
@@ -377,7 +441,6 @@ class CrowTabMethods:
                 "crow_pdf_checkbox": self.crow_pdf_checkbox.isChecked(),
                 "crow_json_checkbox": self.crow_json_checkbox.isChecked(),
                 "crow_dump_checkbox": self.crow_dump_checkbox.isChecked(),
-                "crow_filter_input": self.crow_filter_input.text(),
                 "crow_breach_username_checkbox": self.crow_breach_username_checkbox.isChecked(),
                 "crow_breach_email_checkbox": self.crow_breach_email_checkbox.isChecked(),
                 "crow_ai_api_key": self.crow_ai_api_key if hasattr(self, 'crow_ai_api_key') else ''
@@ -398,6 +461,7 @@ class CrowTabMethods:
 
                 self.crow_username_input.setText(settings.get("crow_username_input", ""))
                 self.crow_email_input.setText(settings.get("crow_email_input", ""))
+                self.crow_filter_input.setText(settings.get("crow_filter_input", ""))  # Load filter input
                 self.crow_ai_checkbox.setChecked(settings.get("crow_ai_checkbox", False))
                 self.crow_tor_checkbox.setChecked(settings.get("crow_tor_checkbox", False))
                 self.crow_permute_checkbox.setChecked(settings.get("crow_permute_checkbox", False))
@@ -405,12 +469,11 @@ class CrowTabMethods:
                 self.crow_csv_checkbox.setChecked(settings.get("crow_csv_checkbox", False))
                 self.crow_verbose_checkbox.setChecked(settings.get("crow_verbose_checkbox", False))
                 self.crow_pdf_checkbox.setChecked(settings.get("crow_pdf_checkbox", False))
-                self.crow_permuteall_checkbox.setChecked(settings.get("crow_permuteall_checkbox", False))  # ADDED
-                self.crow_no_update_checkbox.setChecked(settings.get("crow_no_update_checkbox", False))    # ADDED
-                self.crow_max_concurrent_spinbox.setValue(settings.get("crow_max_concurrent_spinbox", 30))  # ADDED
+                self.crow_permuteall_checkbox.setChecked(settings.get("crow_permuteall_checkbox", False))
+                self.crow_no_update_checkbox.setChecked(settings.get("crow_no_update_checkbox", False))
+                self.crow_max_concurrent_spinbox.setValue(settings.get("crow_max_concurrent_spinbox", 30))
                 self.crow_json_checkbox.setChecked(settings.get("crow_json_checkbox", False))
                 self.crow_dump_checkbox.setChecked(settings.get("crow_dump_checkbox", False))
-                self.crow_filter_input.setText(settings.get("crow_filter_input", ""))
                 self.crow_breach_username_checkbox.setChecked(settings.get("crow_breach_username_checkbox", False))
                 self.crow_breach_email_checkbox.setChecked(settings.get("crow_breach_email_checkbox", False))
                 
@@ -427,27 +490,9 @@ class CrowTabMethods:
     # The breach functions will be called from the main file
 
     def on_ai_file_saved(self, file_path):
-        """Handle when AI analysis file is saved"""
+        """Handle when AI analysis file is saved - MODIFIED: No longer asks to open file"""
         self.output_area.append(f"💾 AI results saved to: {file_path}")
-        
-        # Optional: Ask if user wants to open the file
-        reply = QMessageBox.question(
-            self,
-            "AI Analysis Saved",
-            f"AI analysis has been saved to:\n{file_path}\n\nWould you like to open it?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                if sys.platform == "win32":
-                    os.startfile(file_path)
-                elif sys.platform == "darwin":
-                    subprocess.run(["open", file_path])
-                else:
-                    subprocess.run(["xdg-open", file_path])
-            except Exception as e:
-                self.output_area.append(f"⚠️ Could not open file: {e}")
+        # Just notify user, don't ask to open
 
     def check_crow_ai_api_key(self):
         """Check if AI API key is available for Crow"""
@@ -459,7 +504,7 @@ class CrowTabMethods:
         
         # Check config files
         config_paths = [
-            os.path.expanduser("~/.ai_key.json"),
+            os.expanduser("~/.ai_key.json"),
             ".ai_key.json",
         ]
         

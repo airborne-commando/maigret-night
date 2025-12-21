@@ -19,6 +19,34 @@ except ImportError:
 
 # Remove the indentation from all function definitions
 
+def validate_filter_file(self, file_path):
+    """Validate filter file format"""
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read().strip()
+            
+        if not content:
+            self.output_area.append("⚠️ Filter file is empty")
+            return False
+        
+        lines = [line.strip() for line in content.split('\n') if line.strip()]
+        self.output_area.append(f"✅ Loaded {len(lines)} filter(s) from file")
+        
+        # Show preview of filters
+        for i, line in enumerate(lines[:3]):  # Show first 3 filters as preview
+            self.output_area.append(f"   Filter {i+1}: {line}")
+        if len(lines) > 3:
+            self.output_area.append(f"   ... and {len(lines)-3} more filter(s)")
+        
+        return True
+        
+    except FileNotFoundError:
+        self.output_area.append(f"❌ Filter file not found: {file_path}")
+        return False
+    except Exception as e:
+        self.output_area.append(f"❌ Error reading filter file: {e}")
+        return False
+
 def run_crow_search(gui_instance):
     """Run the Crow (Blackbird) search"""
     # Clear output area
@@ -27,6 +55,7 @@ def run_crow_search(gui_instance):
     # Get username and email for AI analysis
     username = gui_instance.crow_username_input.text().strip()
     email = gui_instance.crow_email_input.text().strip()
+    filter_text = gui_instance.crow_filter_input.text().strip()
     
     # Check if AI is enabled but no API key
     if gui_instance.crow_ai_checkbox.isChecked():
@@ -135,23 +164,22 @@ def run_crow_search(gui_instance):
     
     # Build Blackbird command
     try:
-        # Need to import build_blackbird_command
         try:
             from .command_builder import build_blackbird_command
         except ImportError:
             from command_builder import build_blackbird_command
         
-        # Update the command building in run_crow_search method:
-        command = build_blackbird_command(
+        # Build the command using the command builder
+        command_parts = build_blackbird_command(
             username_input=username,
             email_input=email,
             username_file_input="",
             email_file_input="",
             permute_checkbox=gui_instance.crow_permute_checkbox.isChecked(),
-            permuteall_checkbox=gui_instance.crow_permuteall_checkbox.isChecked(),  # ADDED
+            permuteall_checkbox=gui_instance.crow_permuteall_checkbox.isChecked(),
             AI_checkbox=gui_instance.crow_ai_checkbox.isChecked(),
             no_nsfw_checkbox=gui_instance.crow_no_nsfw_checkbox.isChecked(),
-            no_update_checkbox=gui_instance.crow_no_update_checkbox.isChecked(),  # ADDED
+            no_update_checkbox=gui_instance.crow_no_update_checkbox.isChecked(),
             csv_checkbox=gui_instance.crow_csv_checkbox.isChecked(),
             pdf_checkbox=gui_instance.crow_pdf_checkbox.isChecked(),
             json_checkbox=gui_instance.crow_json_checkbox.isChecked(),
@@ -159,10 +187,17 @@ def run_crow_search(gui_instance):
             dump_checkbox=gui_instance.crow_dump_checkbox.isChecked(),
             proxy_input="",
             timeout_spinbox=30,
-            max_concurrent_requests=gui_instance.crow_max_concurrent_spinbox.value(),  # ADDED
-            filter_input=gui_instance.crow_filter_input.text(),
+            max_concurrent_requests=gui_instance.crow_max_concurrent_spinbox.value(),
+            filter_input=filter_text,
             instagram_session_id=""
         )
+        
+        if not command_parts:
+            gui_instance.output_area.append("❌ Failed to build command. Check your filter file.")
+            return
+        
+        # Convert command parts to string
+        command = " ".join(command_parts)
         
         # Show AI info if enabled
         if gui_instance.crow_ai_checkbox.isChecked():
@@ -170,9 +205,18 @@ def run_crow_search(gui_instance):
             gui_instance.output_area.append("Note: AI analysis will be automatically saved to text file")
             gui_instance.output_area.append("")
         
+        # Show filter info
+        if filter_text:
+            if filter_text.startswith("file:"):
+                gui_instance.output_area.append(f"📄 Using filter file: {filter_text[5:]}")
+            else:
+                gui_instance.output_area.append(f"🔍 Using filter: {filter_text}")
+        
+        gui_instance.output_area.append(f"🔧 Command: {command}")
+        
         # Create and start the worker
         gui_instance.crow_worker = CrowWorker(
-            " ".join(command), 
+            command, 
             needs_ai_confirmation=gui_instance.crow_ai_checkbox.isChecked(),
             is_setup_ai=False,
             tor_spoofer=gui_instance.crow_tor_spoofer if gui_instance.crow_tor_checkbox.isChecked() else None,
@@ -189,6 +233,20 @@ def run_crow_search(gui_instance):
         
     except Exception as e:
         gui_instance.output_area.append(f"❌ Error building command: {e}")
+
+def select_crow_filter_file(gui_instance):
+    """Select filter file for Crow search and validate it"""
+    file_name, _ = QFileDialog.getOpenFileName(
+        gui_instance, 
+        "Select Filter File", 
+        "", 
+        "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
+    )
+    if file_name:
+        # Validate the file
+        if gui_instance.validate_filter_file(file_name):
+            gui_instance.crow_filter_input.setText(f"file:{file_name}")
+
 
 def create_save_load_actions(gui_instance, layout):
     save_load_layout = QHBoxLayout()
