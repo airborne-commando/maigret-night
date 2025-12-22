@@ -5,11 +5,11 @@ Command builder for Blackbird OSINT tool
 import os
 
 def combine_filters(filter_list):
-    """Combine multiple filters into a single filter string"""
+    """Combine multiple filters with smart AND/OR operator selection"""
     if not filter_list:
         return ""
     
-    # First, process each filter (could be file or direct)
+    # Process each filter
     processed_filters = []
     
     for filter_item in filter_list:
@@ -22,7 +22,9 @@ def combine_filters(filter_list):
                     if content:
                         # Split by lines and add each as separate filter
                         lines = [line.strip() for line in content.split('\n') if line.strip()]
-                        processed_filters.extend(lines)
+                        # Auto-detect operators for multi-line content
+                        smart_content = auto_detect_and_append_operators(content)
+                        processed_filters.append(smart_content)
                 except:
                     # If can't read file, use the file reference as-is
                     processed_filters.append(filter_item)
@@ -31,11 +33,102 @@ def combine_filters(filter_list):
         else:
             processed_filters.append(filter_item)
     
-    # Combine all processed filters with "and"
     if len(processed_filters) == 1:
         return processed_filters[0]
+    
+    # Group filters by type for smart combination
+    name_contains_or_equals = []
+    name_not_equals = []
+    cat_not_equals = []
+    cat_equals = []
+    other_filters = []
+    
+    for filter_expr in processed_filters:
+        if 'name~' in filter_expr or 'name=' in filter_expr:
+            name_contains_or_equals.append(filter_expr)
+        elif 'name!=' in filter_expr:
+            name_not_equals.append(filter_expr)
+        elif 'cat!=' in filter_expr:
+            cat_not_equals.append(filter_expr)
+        elif 'cat=' in filter_expr:
+            cat_equals.append(filter_expr)
+        else:
+            other_filters.append(filter_expr)
+    
+    # Build combined filter
+    combined_parts = []
+    
+    # 1. Combine name~ and name= with OR
+    if name_contains_or_equals:
+        if len(name_contains_or_equals) == 1:
+            combined_parts.append(name_contains_or_equals[0])
+        else:
+            combined_parts.append(f"({' or '.join(name_contains_or_equals)})")
+    
+    # 2. Combine name!= with AND
+    if name_not_equals:
+        if len(name_not_equals) == 1:
+            combined_parts.append(name_not_equals[0])
+        else:
+            combined_parts.append(f"({' and '.join(name_not_equals)})")
+    
+    # 3. Combine cat!= with AND
+    if cat_not_equals:
+        if len(cat_not_equals) == 1:
+            combined_parts.append(cat_not_equals[0])
+        else:
+            combined_parts.append(f"({' and '.join(cat_not_equals)})")
+    
+    # 4. Combine cat= with OR
+    if cat_equals:
+        if len(cat_equals) == 1:
+            combined_parts.append(cat_equals[0])
+        else:
+            combined_parts.append(f"({' or '.join(cat_equals)})")
+    
+    # 5. Add other filters with AND
+    combined_parts.extend(other_filters)
+    
+    # Combine all parts with AND
+    if len(combined_parts) == 1:
+        return combined_parts[0]
     else:
-        return " and ".join(processed_filters)
+        return " and ".join(combined_parts)
+
+
+def auto_detect_and_append_operators(filter_text):
+    """Automatically append the right operators to filter text"""
+    lines = [line.strip() for line in filter_text.split('\n') if line.strip()]
+    
+    if len(lines) <= 1:
+        return filter_text
+    
+    # Analyze each line to determine operator
+    result_lines = []
+    for i, line in enumerate(lines):
+        result_lines.append(line)
+        
+        # Only add operator if not the last line
+        if i < len(lines) - 1:
+            current_line = line
+            next_line = lines[i + 1]
+            
+            # Determine operator based on patterns
+            if 'name~' in current_line or 'name=' in current_line:
+                if 'name~' in next_line or 'name=' in next_line:
+                    result_lines.append("or")
+                else:
+                    result_lines.append("and")
+            elif 'name!=' in current_line:
+                result_lines.append("and")
+            elif 'cat!=' in current_line:
+                result_lines.append("and")  # cat!= uses AND
+            elif 'cat=' in current_line:
+                result_lines.append("or")   # cat= uses OR
+            else:
+                result_lines.append("and")
+    
+    return " ".join(result_lines)
 
 # Update the build_blackbird_command function in command_builder.py
 # In command_builder.py, update the build_blackbird_command function:
@@ -157,7 +250,7 @@ def build_blackbird_command(
             if len(all_filter_parts) == 1:
                 filter_string = all_filter_parts[0]
             else:
-                filter_string = " and ".join(all_filter_parts)
+                filter_string = combine_filters(all_filter_parts)
     
     # Add the filter to command if we have one
     if filter_string:
