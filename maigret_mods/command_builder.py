@@ -22,9 +22,7 @@ def combine_filters(filter_list):
                     if content:
                         # Split by lines and add each as separate filter
                         lines = [line.strip() for line in content.split('\n') if line.strip()]
-                        # Auto-detect operators for multi-line content
-                        smart_content = auto_detect_and_append_operators(content)
-                        processed_filters.append(smart_content)
+                        processed_filters.extend(lines)
                 except:
                     # If can't read file, use the file reference as-is
                     processed_filters.append(filter_item)
@@ -58,42 +56,81 @@ def combine_filters(filter_list):
     # Build combined filter
     combined_parts = []
     
-    # 1. Combine name~ and name= with OR
+    # 1. Combine name~ and name= with OR (lowercase 'or' for Blackbird)
     if name_contains_or_equals:
         if len(name_contains_or_equals) == 1:
             combined_parts.append(name_contains_or_equals[0])
         else:
-            combined_parts.append(f"({' or '.join(name_contains_or_equals)})")
+            # Use lowercase 'or' without parentheses
+            combined_parts.append(" or ".join(name_contains_or_equals))
     
-    # 2. Combine name!= with AND
+    # 2. Combine name!= with AND (lowercase 'and' for Blackbird)
     if name_not_equals:
         if len(name_not_equals) == 1:
             combined_parts.append(name_not_equals[0])
         else:
-            combined_parts.append(f"({' and '.join(name_not_equals)})")
+            # Use lowercase 'and' without parentheses
+            combined_parts.append(" and ".join(name_not_equals))
     
-    # 3. Combine cat!= with AND
+    # 3. Combine cat!= with AND (lowercase 'and' for Blackbird)
     if cat_not_equals:
         if len(cat_not_equals) == 1:
             combined_parts.append(cat_not_equals[0])
         else:
-            combined_parts.append(f"({' and '.join(cat_not_equals)})")
+            # Use lowercase 'and' without parentheses
+            combined_parts.append(" and ".join(cat_not_equals))
     
-    # 4. Combine cat= with OR
+    # 4. Combine cat= with OR (lowercase 'or' for Blackbird)
     if cat_equals:
         if len(cat_equals) == 1:
             combined_parts.append(cat_equals[0])
         else:
-            combined_parts.append(f"({' or '.join(cat_equals)})")
+            # Use lowercase 'or' without parentheses
+            combined_parts.append(" or ".join(cat_equals))
     
-    # 5. Add other filters with AND
+    # 5. Add other filters
     combined_parts.extend(other_filters)
     
-    # Combine all parts with AND
+    # Combine all parts with AND (lowercase 'and' for Blackbird)
     if len(combined_parts) == 1:
         return combined_parts[0]
     else:
         return " and ".join(combined_parts)
+
+
+def auto_detect_and_append_operators(filter_text):
+    """Automatically append the right operators to filter text"""
+    lines = [line.strip() for line in filter_text.split('\n') if line.strip()]
+    
+    if len(lines) <= 1:
+        return filter_text
+    
+    # Analyze each line to determine operator
+    result_lines = []
+    for i, line in enumerate(lines):
+        result_lines.append(line)
+        
+        # Only add operator if not the last line
+        if i < len(lines) - 1:
+            current_line = line
+            next_line = lines[i + 1]
+            
+            # Determine operator based on patterns (use lowercase)
+            if 'name~' in current_line or 'name=' in current_line:
+                if 'name~' in next_line or 'name=' in next_line:
+                    result_lines.append("or")  # lowercase
+                else:
+                    result_lines.append("and")  # lowercase
+            elif 'name!=' in current_line:
+                result_lines.append("and")  # lowercase
+            elif 'cat!=' in current_line:
+                result_lines.append("and")  # lowercase
+            elif 'cat=' in current_line:
+                result_lines.append("or")   # lowercase
+            else:
+                result_lines.append("and")  # lowercase
+    
+    return " ".join(result_lines)
 
 
 def auto_detect_and_append_operators(filter_text):
