@@ -20,3 +20,5 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
 ```
 
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird)
+
+Feel free to check out this [filter list](https://gist.github.com/airborne-commando/378af481b35edd3be53f3bc7f24724a1), defaulted to `=`
