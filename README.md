@@ -19,6 +19,21 @@ For crow:
 pip install -r requirements_GUI.txt && pip install -r requirements.txt
 ```
 
+
+**Known false positives**
+
+    ok.ru
+    Chatango
+    247CTF
+    Znanija
+    zhihu
+    Greasy Fork
+    
+    These are the results you need to look out for.
+    
+    Use libreoffice calc, use auto-filter.
+
+
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird)
 
 Feel free to check out this [filter list](https://gist.github.com/airborne-commando/378af481b35edd3be53f3bc7f24724a1), defaulted to `=`
