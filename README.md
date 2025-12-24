@@ -20,3 +20,16 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
 ```
 
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird)
+
+**Known false positives**
+
+    ok.ru
+    Chatango
+    247CTF
+    Znanija
+    zhihu
+    Greasy Fork
+    
+    These are the results you need to look out for.
+    
+    Use libreoffice calc, use auto-filter.
