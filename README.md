@@ -58,6 +58,7 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
     name!=Wattpad 
     name!=redbubble 
 
+Not many people use telegram as that is a secure chat app; still do you own due diligence.
 
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird) | markdown on shell [scripting](https://app.radicle.xyz/nodes/iris.radicle.xyz/rad:zXuj4JY6cW16dn6usB9c9wuGJkBR/tree/markdown/scripts.md) your gonna need it.
 
