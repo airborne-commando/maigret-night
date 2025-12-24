@@ -34,6 +34,6 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
     Use libreoffice calc, use auto-filter.
 
 
-Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird)
+Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird) | markdown on shell [scripting](https://app.radicle.xyz/nodes/iris.radicle.xyz/rad:zXuj4JY6cW16dn6usB9c9wuGJkBR/tree/markdown/scripts.md) your gonna need it.
 
 Feel free to check out this [filter list](https://gist.github.com/airborne-commando/378af481b35edd3be53f3bc7f24724a1), defaulted to `=`
