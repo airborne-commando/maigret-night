@@ -27,11 +27,36 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
     247CTF
     Znanija
     zhihu
-    Greasy Fork
     
     These are the results you need to look out for.
     
     Use libreoffice calc, use auto-filter.
+    
+    for the normies:
+    
+    cat!=political
+    cat!=tech
+    cat!=coding
+    name!=ok.ru
+    name!=Chatango
+    name!=247CTF
+    name!=Znanija
+    name!=zhihu
+    name!=Telegram
+    name!=Gravatar
+    name!=Trello
+    name!=weebly
+    name!=Etoro
+    name!=Lemon8
+    name!=Etoro 
+    name!=Lemon8
+    name!=gumroad
+    name!=Bandcamp
+    name!=smule
+    name!=Houzz 
+    name!=Polarsteps  
+    name!=Wattpad 
+    name!=redbubble 
 
 
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird) | markdown on shell [scripting](https://app.radicle.xyz/nodes/iris.radicle.xyz/rad:zXuj4JY6cW16dn6usB9c9wuGJkBR/tree/markdown/scripts.md) your gonna need it.
