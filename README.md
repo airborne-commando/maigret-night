@@ -48,15 +48,13 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
     name!=weebly
     name!=Etoro
     name!=Lemon8
-    name!=Etoro 
-    name!=Lemon8
     name!=gumroad
     name!=Bandcamp
     name!=smule
-    name!=Houzz 
-    name!=Polarsteps  
-    name!=Wattpad 
-    name!=redbubble 
+    name!=Houzz
+    name!=Polarsteps
+    name!=Wattpad
+    name!=redbubble
 
 Not many people use telegram as that is a secure chat app; still do you own due diligence.
 
@@ -66,3 +64,7 @@ Feel free to check out this [filter list](https://gist.github.com/airborne-comma
 
 
 Do a dry run first, get an idea of what the person is into; then sort in blackbird et al and refine steps.
+
+[Most Popular Messaging Apps - exploding topics (Duarte. October 14, 2025)](https://explodingtopics.com/blog/messaging-apps-stats)
+
+[9 Best Secure Messaging Apps for Business Leaders and Employees - JWU (Upated March 21, 2025)](https://online.jwu.edu/blog/9-best-secure-messaging-apps-business-leaders-and-employees/)
