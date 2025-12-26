@@ -24,55 +24,70 @@
 # cat!=coding
 # cat!=tech
 # cat!=political
-# Site names, use to mute specific
-# name!=ok.ru
-# name!=Chatango
-# name!=247CTF
-# name!=Znanija
-# name!=zhihu
+
+# --- Social ---
 # name!=Telegram
-# name!=Gravatar
-# name!=Trello
-# name!=weebly
-# name!=Etoro
-# name!=Lemon8
-# name!=gumroad
-# name!=Bandcamp
-# name!=tripadvisor
-# name!=smule
-# name!=Houzz
-# name!=Polarsteps
-# name!=Wattpad
-# name!=redbubble
-# name!=Blogspot
-# name!=Reddit
 # name!=Instagram
-# name!=tumblr
-# name!=Clubhouse
-# name!=Duolingo
-# name!=BodyBuilding.com
-# name!=Ko-Fi
-# name!=Disqus
-# name!=Calendy
-# name!=Tellonym
-# name!=Snapchat
-# name!=Venmo
-# name!=about.me
-# name!=youpic
+# name!=Reddit
 # name!=twitter
 # name!=X
 # name!=Pinterest
-# name!=SoundCloud
-# name!=Twitch
-# name!=MySpace
-# name!=VIEWBUG
-# name!=YouNow
-# name!=Poshmark
-# name!=Tenor
+# name!=Snapchat
 # name!=TikTok
-# name!=Roblox
+# name!=tumblr
+# name!=MySpace
+# name!=Mastodon
+# name!=Clubhouse
+# name!=Tellonym
+# name!=youpic
+# name!=ok.ru
+# name!=zhihu
+# name!=kwai
+# --- Blog ---
+# name!=Blogspot
 # name!=Substack
-# Uri's, sort later; use to mute spaced site names
+# name!=weebly
+# --- Video / Entertainment ---
+# name!=Twitch
+# name!=YouNow
+# name!=smule
+# name!=Tenor
+# --- Developer / Tech ---
+# name!=DeviantArt
+# name!=Picsart
+# name!=Roblox
+# name!=247CTF
+# name!=Trello
+# name!=Disqus
+# name!=VIEWBUG
+# name!=Gravatar
+# --- Links / Profile Portfolios ---
+# name!=Linktree
+# name!=AllMyLinks
+# name!=about.me
+# name!=Ko-Fi
+# name!=Lemon8
+# name!=gumroad
+# --- Travel / Real Estate ---
+# name!=tripadvisor
+# name!=Polarsteps
+# name!=Houzz
+# --- Business / Personal Finance ---
+# name!=Etoro
+# name!=Venmo
+# name!=Calendy
+# --- Education / Reading ---
+# name!=Znanija
+# name!=Wattpad
+# name!=Duolingo
+# --- Shopping / Music / Misc ---
+# name!=Poshmark
+# name!=redbubble
+# name!=Bandcamp
+# name!=SoundCloud
+# name!=BodyBuilding.com
+# name!=RuTracker.org
+
 #Apex Legends TrackerAPI
 # uri_check!=https://api.tracker.gg/api/v2/apex/standard/profile/origin/{account}
 
@@ -330,9 +345,3 @@
 # YouTubeAccounts
 # uri_check!=https://www.youtube.com/user/{account}/about
 # uri_check!=https://www.youtube.com/@{account}
-
-# PicsartAPI
-# uri_check!=https://api.picsart.com/users/show/{account}
-
-# DeviantArtAccount
-# uri_check!=https://www.deviantart.com/{account}

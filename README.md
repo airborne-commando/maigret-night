@@ -176,14 +176,11 @@ pip install -r requirements_GUI.txt && pip install -r requirements.txt
     uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}
     uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}/status/*
 
-For more in this repo see the [filterlist](./filter_list/filterlist.txt)
+For more in this repo see the [filterlist](./filter_list/filterlist.txt), defaulted to `=` and commented out.
 
 Not many people use telegram as that is a secure chat app; still do you own due diligence.
 
 Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird) | markdown on shell [scripting](https://app.radicle.xyz/nodes/iris.radicle.xyz/rad:zXuj4JY6cW16dn6usB9c9wuGJkBR/tree/markdown/scripts.md) your gonna need it.
-
-Feel free to check out this [filter list](https://gist.github.com/airborne-commando/378af481b35edd3be53f3bc7f24724a1), defaulted to `=`
-
 
 Do a dry run first, get an idea of what the person is into; then sort in blackbird et al and refine steps.
 
