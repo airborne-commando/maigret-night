@@ -1,7 +1,7 @@
 """
 Command builder for Blackbird OSINT tool
 """
-
+from .filter_parser import parse_filters_from_file, parse_filters_from_string, validate_filters
 import os
 
 def combine_filters(filter_list):
@@ -17,19 +17,19 @@ def combine_filters(filter_list):
             file_path = filter_item[5:]
             if os.path.exists(file_path):
                 try:
-                    with open(file_path, 'r') as f:
-                        content = f.read().strip()
-                    if content:
-                        # Split by lines and add each as separate filter
-                        lines = [line.strip() for line in content.split('\n') if line.strip()]
-                        processed_filters.extend(lines)
-                except:
-                    # If can't read file, use the file reference as-is
+                    # Use the new parser to handle comments
+                    parsed_filters = parse_filters_from_file(file_path)
+                    processed_filters.extend(parsed_filters)
+                except Exception as e:
+                    print(f"❌ Error parsing filter file {file_path}: {e}")
+                    # If can't parse, use the file reference as-is
                     processed_filters.append(filter_item)
             else:
                 processed_filters.append(filter_item)
         else:
-            processed_filters.append(filter_item)
+            # Parse direct filter text for comments
+            parsed_filters = parse_filters_from_string(filter_item)
+            processed_filters.extend(parsed_filters)
     
     if len(processed_filters) == 1:
         return processed_filters[0]
@@ -56,46 +56,71 @@ def combine_filters(filter_list):
     # Build combined filter
     combined_parts = []
     
-    # 1. Combine name~ and name= with OR (lowercase 'or' for Blackbird)
+    # 1. Combine name~ and name= with OR
     if name_contains_or_equals:
         if len(name_contains_or_equals) == 1:
             combined_parts.append(name_contains_or_equals[0])
         else:
-            # Use lowercase 'or' without parentheses
             combined_parts.append(" or ".join(name_contains_or_equals))
     
-    # 2. Combine name!= with AND (lowercase 'and' for Blackbird)
+    # 2. Combine name!= with AND
     if name_not_equals:
         if len(name_not_equals) == 1:
             combined_parts.append(name_not_equals[0])
         else:
-            # Use lowercase 'and' without parentheses
             combined_parts.append(" and ".join(name_not_equals))
     
-    # 3. Combine cat!= with AND (lowercase 'and' for Blackbird)
+    # 3. Combine cat!= with AND
     if cat_not_equals:
         if len(cat_not_equals) == 1:
             combined_parts.append(cat_not_equals[0])
         else:
-            # Use lowercase 'and' without parentheses
             combined_parts.append(" and ".join(cat_not_equals))
     
-    # 4. Combine cat= with OR (lowercase 'or' for Blackbird)
+    # 4. Combine cat= with OR
     if cat_equals:
         if len(cat_equals) == 1:
             combined_parts.append(cat_equals[0])
         else:
-            # Use lowercase 'or' without parentheses
             combined_parts.append(" or ".join(cat_equals))
     
     # 5. Add other filters
     combined_parts.extend(other_filters)
     
-    # Combine all parts with AND (lowercase 'and' for Blackbird)
+    # Combine all parts with AND
     if len(combined_parts) == 1:
         return combined_parts[0]
     else:
         return " and ".join(combined_parts)
+
+def process_filters_with_comments(filter_input, show_validation=False):
+    """
+    Process filter input with comment support
+    
+    Args:
+        filter_input (str): Filter input string
+        show_validation (bool): Whether to show validation results
+    
+    Returns:
+        tuple: (valid_filters, invalid_filters, combined_filter)
+    """
+    parsed_filters = parse_filters_from_string(filter_input)
+    valid_filters, invalid_filters = validate_filters(parsed_filters)
+    
+    if show_validation:
+        if valid_filters:
+            print(f"✅ Valid filters found: {len(valid_filters)}")
+            for i, filt in enumerate(valid_filters, 1):
+                print(f"  {i}. {filt}")
+        
+        if invalid_filters:
+            print(f"⚠️ Invalid filters found: {len(invalid_filters)}")
+            for i, filt in enumerate(invalid_filters, 1):
+                print(f"  {i}. {filt}")
+    
+    combined_filter = combine_filters(valid_filters) if valid_filters else ""
+    
+    return valid_filters, invalid_filters, combined_filter
 
 
 def auto_detect_and_append_operators(filter_text):
@@ -236,8 +261,12 @@ def build_blackbird_command(
         else:
             # Handle multiple usernames separated by commas
             usernames = [u.strip() for u in username_input.split(',') if u.strip()]
+            # In the username handling section:
             if usernames:
-                command.extend(["-u"] + usernames)
+                for username in usernames:
+                    username_parts = username.split()
+                    command.append("-u")
+                    command.extend(username_parts)
     
     # Add email or email file
     if email_input:

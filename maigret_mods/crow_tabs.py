@@ -28,7 +28,109 @@ class CrowTabMethods:
     # CROW TAB METHODS
     # ================================================================
 
-    def _create_interactive_filter_widget(self, filter_text="", enabled=True):
+
+    def preview_filter_parsing(self):
+        """Preview how filters will be parsed (shows what gets included/excluded)"""
+        from filter_parser import parse_filters_from_string, validate_filters
+        
+        # Get all filter texts
+        all_filter_texts = []
+        for widget in self.crow_interactive_filter_widgets:
+            if widget.checkbox.isChecked():
+                filter_text = widget.input.text().strip()
+                if filter_text:
+                    all_filter_texts.append(filter_text)
+        
+        if not all_filter_texts:
+            QMessageBox.information(self, "No Filters", "No active filters to preview.")
+            return
+        
+        # Parse and validate
+        preview_dialog = QDialog(self)
+        preview_dialog.setWindowTitle("Filter Parser Preview")
+        preview_dialog.setMinimumWidth(600)
+        
+        layout = QVBoxLayout()
+        
+        # Results text area
+        results_text = QTextEdit()
+        results_text.setReadOnly(True)
+        results_text.setFont(QFont("Courier", 10))
+        
+        # Process each filter
+        total_included = 0
+        total_excluded = 0
+        
+        for i, filter_item in enumerate(all_filter_texts, 1):
+            results_text.append(f"\n{'='*60}")
+            results_text.append(f"Filter {i}: {filter_item}")
+            results_text.append(f"{'='*60}")
+            
+            try:
+                if filter_item.startswith("file:"):
+                    file_path = filter_item[5:]
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r') as f:
+                            content = f.read()
+                        parsed = parse_filters_from_string(content)
+                    else:
+                        results_text.append(f"❌ File not found: {file_path}")
+                        continue
+                else:
+                    parsed = parse_filters_from_string(filter_item)
+                
+                valid, invalid = validate_filters(parsed)
+                
+                results_text.append(f"📊 Results:")
+                results_text.append(f"  ✅ Included: {len(valid)} filter(s)")
+                results_text.append(f"  ❌ Excluded: {len(invalid)} filter(s)")
+                
+                if valid:
+                    results_text.append("\n  Active filters:")
+                    for j, filt in enumerate(valid, 1):
+                        results_text.append(f"    {j}. {filt}")
+                
+                if invalid:
+                    results_text.append("\n  Excluded (invalid/comment):")
+                    for j, filt in enumerate(invalid, 1):
+                        results_text.append(f"    {j}. {filt}")
+                
+                total_included += len(valid)
+                total_excluded += len(invalid)
+                
+            except Exception as e:
+                results_text.append(f"❌ Error parsing: {e}")
+        
+        # Summary
+        results_text.append(f"\n{'='*60}")
+        results_text.append(f"📈 SUMMARY")
+        results_text.append(f"  Total active filters: {total_included}")
+        results_text.append(f"  Total excluded filters: {total_excluded}")
+        
+        if total_included > 0:
+            from command_builder import combine_filters
+            combined_filters = []
+            for filter_item in all_filter_texts:
+                parsed = parse_filters_from_string(filter_item)
+                valid, _ = validate_filters(parsed)
+                combined_filters.extend(valid)
+            
+            combined = combine_filters(combined_filters)
+            results_text.append(f"\n  Final combined filter:")
+            results_text.append(f"  \"{combined}\"")
+        
+        layout.addWidget(results_text)
+        
+        # Close button
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        btn_box.rejected.connect(preview_dialog.reject)
+        layout.addWidget(btn_box)
+        
+        preview_dialog.setLayout(layout)
+        preview_dialog.exec()
+
+
+    def _create_interactive_filter_widget(self, filter_text="", enabled=False):
         """Create a single interactive filter widget"""
         filter_widget = QWidget()
         filter_layout = QHBoxLayout()
