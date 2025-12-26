@@ -1,11 +1,12 @@
 # This is your filter list, use python syntax in sublime or any advance text editor for easy commenting.
 # Categories, use to mute everything; see https://github.com/WebBreacher/WhatsMyName/blob/main/wmn-data.json and https://github.com/WebBreacher/WhatsMyName/tree/main?tab=readme-ov-file#how-does-it-work
 # This uses known info and categories found in WhatsMyName
+
+# --- Categories ---
 # cat!=archived
 # cat!=art
 # cat!=blog
 # cat!=business
-# cat!=coding
 # cat!=dating
 # cat!=finance
 # cat!=gaming
@@ -14,12 +15,9 @@
 # cat!=images
 # cat!=misc
 # cat!=music
-# cat!=news
-# cat!=political
 # cat!=search
 # cat!=shopping
 # cat!=social
-# cat!=tech
 # cat!=video
 # cat!=coding
 # cat!=tech
@@ -36,22 +34,25 @@
 # name!=TikTok
 # name!=tumblr
 # name!=MySpace
-# name!=Mastodon
 # name!=Clubhouse
 # name!=Tellonym
 # name!=youpic
 # name!=ok.ru
 # name!=zhihu
 # name!=kwai
+
 # --- Blog ---
 # name!=Blogspot
+# name!=Naver
 # name!=Substack
 # name!=weebly
+
 # --- Video / Entertainment ---
 # name!=Twitch
 # name!=YouNow
 # name!=smule
 # name!=Tenor
+
 # --- Developer / Tech ---
 # name!=DeviantArt
 # name!=Picsart
@@ -61,6 +62,7 @@
 # name!=Disqus
 # name!=VIEWBUG
 # name!=Gravatar
+
 # --- Links / Profile Portfolios ---
 # name!=Linktree
 # name!=AllMyLinks
@@ -68,18 +70,22 @@
 # name!=Ko-Fi
 # name!=Lemon8
 # name!=gumroad
+
 # --- Travel / Real Estate ---
 # name!=tripadvisor
 # name!=Polarsteps
 # name!=Houzz
+
 # --- Business / Personal Finance ---
 # name!=Etoro
 # name!=Venmo
 # name!=Calendy
+
 # --- Education / Reading ---
 # name!=Znanija
 # name!=Wattpad
 # name!=Duolingo
+
 # --- Shopping / Music / Misc ---
 # name!=Poshmark
 # name!=redbubble
