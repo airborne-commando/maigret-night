@@ -1,0 +1,338 @@
+# This is your filter list, use python syntax in sublime or any advance text editor for easy commenting.
+# Categories, use to mute everything; see https://github.com/WebBreacher/WhatsMyName/blob/main/wmn-data.json and https://github.com/WebBreacher/WhatsMyName/tree/main?tab=readme-ov-file#how-does-it-work
+# This uses known info and categories found in WhatsMyName
+# cat!=archived
+# cat!=art
+# cat!=blog
+# cat!=business
+# cat!=coding
+# cat!=dating
+# cat!=finance
+# cat!=gaming
+# cat!=health
+# cat!=hobby
+# cat!=images
+# cat!=misc
+# cat!=music
+# cat!=news
+# cat!=political
+# cat!=search
+# cat!=shopping
+# cat!=social
+# cat!=tech
+# cat!=video
+# cat!=coding
+# cat!=tech
+# cat!=political
+# Site names, use to mute specific
+# name!=ok.ru
+# name!=Chatango
+# name!=247CTF
+# name!=Znanija
+# name!=zhihu
+# name!=Telegram
+# name!=Gravatar
+# name!=Trello
+# name!=weebly
+# name!=Etoro
+# name!=Lemon8
+# name!=gumroad
+# name!=Bandcamp
+# name!=tripadvisor
+# name!=smule
+# name!=Houzz
+# name!=Polarsteps
+# name!=Wattpad
+# name!=redbubble
+# name!=Blogspot
+# name!=Reddit
+# name!=Instagram
+# name!=tumblr
+# name!=Clubhouse
+# name!=Duolingo
+# name!=BodyBuilding.com
+# name!=Ko-Fi
+# name!=Disqus
+# name!=Calendy
+# name!=Tellonym
+# name!=Snapchat
+# name!=Venmo
+# name!=about.me
+# name!=youpic
+# name!=twitter
+# name!=X
+# name!=Pinterest
+# name!=SoundCloud
+# name!=Twitch
+# name!=MySpace
+# name!=VIEWBUG
+# name!=YouNow
+# name!=Poshmark
+# name!=Tenor
+# name!=TikTok
+# name!=Roblox
+# name!=Substack
+# Uri's, sort later; use to mute spaced site names
+#Apex Legends TrackerAPI
+# uri_check!=https://api.tracker.gg/api/v2/apex/standard/profile/origin/{account}
+
+#Arch Linux GitLabAPI
+# uri_check!=https://gitlab.archlinux.org/api/v4/users?username={account}
+
+#Archive of Our OwnAPI
+# uri_check!=https://archiveofourown.org/users/{account}
+
+#ArduinoAPI
+# uri_check!=https://forum.arduino.cc/u/{account}.json
+# uri_check!=https://projecthub.arduino.cc/{account}
+
+#Artists & ClientsAPI
+# uri_check!=https://artistsnclients.com/people/{account}
+
+#Avid CommunityAPI
+# uri_check!=https://community.avid.com/members/{account}/default.aspx
+
+# Bigo LiveAPI
+# uri_check!=https://www.bigo.tv/user/{account}
+
+# bio.siteAPI
+# uri_check!=https://bio.site/{account}
+
+# BlueskyAPI
+# uri_check!=https://bsky.app/profile/{account}
+# uri_check!=https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={account}.bsky.social
+
+# Buy MeA CoffeeAPI
+# uri_check!=https://app.buymeacoffee.com/api/v1/check_availability
+
+# CodeProjectAPI
+# uri_check!=https://www.codeproject.com/Members/{account}
+
+#Adobe CommunityAPI
+# uri_check!=https://community.adobe.com/t5/forums/searchpage/tab/user?q={account}
+
+# Daily KosAPI
+# uri_check!=https://www.dailykos.com/user/{account}
+
+# DiscordAPI
+# uri_check!=https://discord.com/api/v9/invites/{account}?with_counts=true&with_expiration=true
+# uri_check!=https://discord.com/api/v9/unique-username/username-attempt-unauthed
+
+# Docker HubAPI
+# uri_check!=https://hub.docker.com/v2/orgs/{account}/
+# uri_check!=https://hub.docker.com/v2/users/{account}/
+
+# DonationAlertsAPI
+# uri_check!=https://www.donationalerts.com/api/v1/user/{account}/donationpagesettings
+
+# Evocms CommunityAPI
+# uri_check!=https://community.evocms.ru/users/?search={account}
+
+# Expressional SocialAPI
+# uri_check!=https://expressional.social/api/v1/accounts/lookup?acct={account}
+
+# Federated PressAPI
+# uri_check!=https://federated.press/api/v1/accounts/lookup?acct={account}
+
+# FilmotAPI
+# uri_check!=https://filmot.com/channelsearch/{account}
+# uri_check!=https://filmot.com/unlistedSearch?channelQuery={account}&sortField=uploaddate&sortOrder=desc&
+
+# Fodor’s ForumAPI
+# uri_check!=https://www.fodors.com/community/profile/{account}/forum-activity
+
+# Fortnite TrackerAPI
+# uri_check!=https://fortnitetracker.com/profile/all/{account}
+
+# FosstodonAPI
+# uri_check!=https://fosstodon.org/api/v1/accounts/lookup?acct={account}
+
+# FreelanceHuntAPI
+# uri_check!=https://freelancehunt.com/en/employer/{account}.html
+# uri_check!=https://freelancehunt.com/en/freelancer/{account}.html
+
+# FurAffinityAPI
+# uri_check!=https://www.furaffinity.net/user/{account}/
+
+# GameJoltAPI
+# uri_check!=https://gamejolt.com/site-api/web/profile/@{account}/
+
+# GamerDVRAPI
+# uri_check!=https://gamerdvr.com/gamer/{account}
+
+# Garmin ConnectAPI
+# uri_check!=https://connect.garmin.com/modern/profile/{account}
+
+# GeniusAPI
+# uri_check!=https://genius.com/artists/{account}
+# uri_check!=https://genius.com/{account}
+
+# GiphyAPI
+# uri_check!=https://giphy.com/channel/{account}
+
+# GitHubAPI
+# uri_check!=https://api.github.com/users/{account}/gists
+
+# GNOMEAPI
+# uri_check!=https://gitlab.gnome.org/api/v4/users?username={account}
+# uri_check!=https://extensions.gnome.org/accounts/profile/{account}
+
+# Graphics.socialAPI
+# uri_check!=https://graphics.social/api/v1/accounts/lookup?acct={account}
+
+# GreasyForkAPI
+# uri_check!=https://greasyfork.org/en/users?q={account}
+
+# HabrAPI
+# uri_check!=https://freelance.habr.com/freelancers/{account}/employer
+# uri_check!=https://freelance.habr.com/freelancers/{account}
+# uri_check!=https://qna.habr.com/user/{account}
+
+# Hacker NewsAPI
+# uri_check!=https://news.ycombinator.com/user?id={account}
+
+# Mastodon / Fediverse InstancesAPI
+# uri_check!=https://hcommons.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://historians.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://hometech.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://hostux.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://mapstodon.space/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://masto.nyc/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://mastodon.social/api/v2/search?q={account}&limit=1&type=accounts
+# uri_check!=https://mastodonbooks.net/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://musician.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://nitecrew.rip/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://libretooth.gr/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://lor.sh/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://tilde.zone/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://tooting.ch/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://truthsocial.com/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://vkl.world/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://vmst.io/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://poweredbygay.social/api/v1/accounts/lookup?acct={account}
+
+#Academia.eduAPI
+# uri_check!=https://independent.academia.edu/{account}
+
+# ImginnAPI
+# uri_check!=https://imginn.com/{account}/
+
+# IXBT ForumAPI
+# uri_check!=https://forum.ixbt.com/users.cgi?id=info:{account}
+
+# JoeMonsterAPI
+# uri_check!=https://joemonster.org/bojownik/{account}
+
+# LCWOAPI
+# uri_check!=https://lcwo.net/api/user_exists.php
+
+# MalpediaAPI
+# uri_check!=https://malpedia.caad.fkie.fraunhofer.de/actor/{account}
+
+# MassageAnywhereAPI
+# uri_check!=https://www.massageanywhere.com/profile/{account}
+
+# MinecraftAPI
+# uri_check!=https://mcname.info/en/search?q={account}
+# uri_check!=https://playerdb.co/api/player/minecraft/{account}
+# uri_check!=https://minecraftlist.com/players/{account}
+
+# MeetMeAPI
+# uri_check!=https://www.meetme.com/{account}
+
+# ModDBAPI
+# uri_check!=https://www.moddb.com/html/scripts/autocomplete.php?a=username&q={account}
+
+# Moto-TripAPI
+# uri_check!=https://moto-trip.com/profil/{account}
+
+# MuckrackAPI
+# uri_check!=https://muckrack.com/{account}
+
+# MyFitnessPalAPI
+# uri_check!=https://blog.myfitnesspal.com/author/{account}/
+# uri_check!=https://community.myfitnesspal.com/en/profile/{account}
+
+# Nifty GatewayAPI
+# uri_check!=https://api.niftygateway.com/user/profile-and-offchain-nifties-by-url/?profile_url={account}
+
+# OpenStreetMap WikiAPI
+# uri_check!=https://wiki.openstreetmap.org/w/api.php?action=query&format=json&list=users&ususers={account}
+
+# Our FreedomBookAPI
+# uri_check!=https://www.ourfreedombook.com/{account}
+
+# Patriots.winAPI
+# uri_check!=https://patriots.win/u/{account}/
+
+# PSNProfilesAPI
+# uri_check!=https://psnprofiles.com/xhr/search/users?q={account}
+
+# PollEvAPI
+# uri_check!=https://pollev.com/proxy/api/users/{account}
+
+# PornhubAPI
+# uri_check!=https://www.pornhub.com/pornstar/{account}
+# uri_check!=https://www.pornhub.com/users/{account}
+
+# PrivacyGuides ForumAPI
+# uri_check!=https://discuss.privacyguides.net/u/{account}.json
+
+# Queer.plAPI 
+# uri_check!=https://queer.pl/user/{account}
+
+# RFArchiveAPI 
+# uri_check!=https://rf-archive.com/users.php?s_tag={account}
+
+# SpeakerDeckAPI
+# uri_check!=https://speakerdeck.com/{account}/
+
+# Sports TrackerAPI
+# uri_check!=https://api.sports-tracker.com/apiserver/v1/user/name/{account}
+
+# TF2ItemsAPI
+# uri_check!=http://www.tf2items.com/id/{account}/
+
+# UEF ConnectAPI
+# uri_check!=https://uefconnect.uef.fi/en/{account}/
+
+# Ultimate GuitarAPI
+# uri_check!=https://www.ultimate-guitar.com/u/{account}
+
+# UltrasDiaryAPI
+# uri_check!=http://ultrasdiary.pl/u/{account}/
+
+# UnlistedVideosAPI
+# uri_check!=https://unlistedvideos.com/search.php?user={account}
+
+# USA.lifeAPI
+# uri_check!=https://usa.life/{account}
+
+# WordPressAPIAnd login
+# uri_check!=https://public-api.wordpress.com/rest/v1.1/sites/{account}.wordpress.com
+# uri_check!=https://login.wordpress.org/wp-json/wporg/v1/username-available/{account}
+
+# XboxGamertag Search
+# uri_check!=https://www.xboxgamertag.com/search/{account}
+
+# Yahoo!Auctions Japan
+# uri_check!=https://auctions.yahoo.co.jp/follow/list/{account}
+
+# InternetArchive
+# uri_check!=https://archive.org/wayback/available?url=https://www.fotolog.com/{account}
+# uri_check!=http://archive.org/wayback/available?url=https://parler.com/profile/{account}/posts
+# uri_check!=http://archive.org/wayback/available?url=https://parler.com/profile/{account}
+# uri_check!=https://archive.org/wayback/available?url=https://www.taringa.net/{account}
+# uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}
+# uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}/status/*
+# uri_check!=https://archive.org/advancedsearch.php?q={account}&output=json
+
+# YouTubeAccounts
+# uri_check!=https://www.youtube.com/user/{account}/about
+# uri_check!=https://www.youtube.com/@{account}
+
+# PicsartAPI
+# uri_check!=https://api.picsart.com/users/show/{account}
+
+# DeviantArtAccount
+# uri_check!=https://www.deviantart.com/{account}
