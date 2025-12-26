@@ -348,7 +348,7 @@
 
 
 
-# sites with spaces inside it DO NOT EDIT HERE, compare with WMN database on github.
+# sites with spaces inside it DO NOT UNCOMMENT, compare with WMN database on github.
 
 # --- Archived ---
 
