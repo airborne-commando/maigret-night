@@ -255,7 +255,7 @@ def process_email_file(file_path, output_area):
             os.makedirs(results_dir)
             
         # Generate batch filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         batch_filename = f"breach_vip_search_{timestamp}.txt"
         batch_filepath = os.path.join(results_dir, batch_filename)
         
@@ -575,7 +575,7 @@ def display_email_results(data, search_term, output_area, is_wildcard=False, sou
         os.makedirs(results_dir)
         
     # Generate filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     safe_term = re.sub(r'[^\w\-_.*?@]', '_', search_term)
     filename = f"{source.lower()}_{search_type.lower()}_{safe_term}_{timestamp}.txt"
     filepath = os.path.join(results_dir, filename)
