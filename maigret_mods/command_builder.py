@@ -254,14 +254,31 @@ def build_blackbird_command(
         if username_input.startswith("file:"):
             file_path = username_input[5:]
             if os.path.exists(file_path):
-                command.extend(["-uf", file_path])
+                try:
+                    # Use the parser to clean the file
+                    from .filter_parser import parse_usernames_from_file
+                    usernames = parse_usernames_from_file(file_path)
+                    if usernames:
+                        # Create a temporary file with cleaned usernames
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tmp:
+                            tmp.write('\n'.join(usernames))
+                            temp_file_path = tmp.name
+                        command.extend(["-uf", temp_file_path])
+                        print(f"✅ Loaded {len(usernames)} cleaned usernames from {file_path}")
+                    else:
+                        print(f"⚠️ No valid usernames found in file: {file_path}")
+                        return None
+                except Exception as e:
+                    print(f"❌ Error parsing username file {file_path}: {e}")
+                    # Fallback to original file
+                    command.extend(["-uf", file_path])
             else:
                 print(f"❌ Username file not found: {file_path}")
                 return None
         else:
             # Handle multiple usernames separated by commas
             usernames = [u.strip() for u in username_input.split(',') if u.strip()]
-            # In the username handling section:
             if usernames:
                 for username in usernames:
                     username_parts = username.split()

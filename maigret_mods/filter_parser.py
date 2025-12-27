@@ -4,6 +4,7 @@ Filter Parser for Blackbird OSINT tool with comment support
 Supports:
 - # as single-line comments
 - Simple and efficient parsing
+- Username file parsing with comment support
 """
 
 import re
@@ -32,6 +33,53 @@ class FilterParser:
             content = f.read()
         
         return self.parse_filter_content(content)
+    
+    def parse_username_file(self, file_path):
+        """
+        Parse a username file and return clean usernames without comments
+        
+        Args:
+            file_path (str): Path to username file
+        
+        Returns:
+            list: Clean usernames without comments or empty lines
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Username file not found: {file_path}")
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return self.parse_username_content(content)
+    
+    def parse_username_content(self, content):
+        """
+        Parse username content string and remove # comments
+        
+        Args:
+            content (str): Username content with # comments
+        
+        Returns:
+            list: Clean usernames without comments
+        """
+        lines = content.split('\n')
+        clean_usernames = []
+        
+        for line in lines:
+            # Remove inline # comments
+            line = self._remove_inline_comments(line)
+            
+            # Skip if whole line is a comment or empty
+            line = line.strip()
+            if line and not self.single_line_comment.match(line):
+                # Split by commas, spaces, or tabs for multiple usernames per line
+                usernames_in_line = re.split(r'[,\s\t]+', line)
+                for username in usernames_in_line:
+                    username = username.strip()
+                    if username:  # Skip empty strings after splitting
+                        clean_usernames.append(username)
+        
+        return clean_usernames
     
     def parse_filter_content(self, content):
         """
@@ -161,6 +209,35 @@ cat=social and e_code=200  # Only social sites that return 200
             f.write(example_content)
         
         return file_path
+    
+    def create_example_username_file(self, file_path):
+        """
+        Create an example username file with # comments
+        
+        Args:
+            file_path (str): Path to create example file
+        """
+        example_content = """# Example Username File with # Comments
+# ======================================
+# Use # to comment out usernames you don't want to search
+
+john_doe
+jane_smith
+# inactive_user  # This user is no longer active
+admin_user
+# temp_account  # Temporary test account
+superuser
+demo_user, test_user  # Multiple usernames on one line
+# banned_user1, banned_user2  # These are banned accounts
+regular_user
+
+# End of username file
+"""
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(example_content)
+        
+        return file_path
 
 # Global parser instance
 parser = FilterParser()
@@ -172,6 +249,14 @@ def parse_filters_from_file(file_path):
 def parse_filters_from_string(filter_string):
     """Parse filters from a string with comment support"""
     return parser.parse_filter_content(filter_string)
+
+def parse_usernames_from_file(file_path):
+    """Parse usernames from a file with comment support"""
+    return parser.parse_username_file(file_path)
+
+def parse_usernames_from_string(username_string):
+    """Parse usernames from a string with comment support"""
+    return parser.parse_username_content(username_string)
 
 def validate_filters(filters):
     """Validate a list of filter strings"""
