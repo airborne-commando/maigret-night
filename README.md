@@ -64,6 +64,8 @@ Read blackbirds git [here](https://github.com/p1ngul1n0/blackbird) | markdown on
 
 Do a dry run first, get an idea of what the person is into; then sort in blackbird et al and refine steps.
 
+You may also comment out usernames in a username file just like you would in a filterlist.
+
 [Most Popular Messaging Apps - exploding topics (Duarte. October 14, 2025)](https://explodingtopics.com/blog/messaging-apps-stats)
 
 [9 Best Secure Messaging Apps for Business Leaders and Employees - JWU (Upated March 21, 2025)](https://online.jwu.edu/blog/9-best-secure-messaging-apps-business-leaders-and-employees/)
