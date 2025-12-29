@@ -1,0 +1,106 @@
+# MISC FILE DO NOT DO ANYTHING WITH THIS
+# --- You don't have to uncomment any of these ---
+# sites with spaces inside it DO NOT UNCOMMENT, compare with WMN database on github.
+
+# --- Archived ---
+
+# name!=Filmot Channel Search
+# name!=Filmot Unlisted Videos
+# name!=Fotolog Archived Profile
+# name!=Parler archived posts
+# name!=Parler archived profile
+# name!=RaidForums - Archive
+# name!=Taringa Archived Profile
+# name!=Twitter archived profile
+# name!=Twitter archived tweets
+# name!=Unlisted Videos
+
+# --- Art ---
+# name!=Artists & Clients
+
+# --- Blog ---
+# name!=WordPress.com (Deleted)
+# name!=WordPress.com (Private)
+# name!=WordPress.com (Public)
+# name!=WordPress.org (Forums)
+# name!=WordPress.org (Profiles)
+
+# --- Business ---
+# name!=UEF CONNECT
+
+# --- Coding ---
+# name!=Code Project
+# name!=Docker Hub (Organization)
+# name!=Docker Hub (User)
+# name!=GitHub Gists
+# name!=GNOME (GitLab)
+# name!=GNOME (Shell Extensions)
+# name!=Habr Q&A
+
+# --- Dating ---
+# name!=meet me
+
+# --- Finance ---
+# name!=Buy Me a Coffee
+# name!=Donation Alerts
+
+# --- Gaming ---
+# name!=Apex Legends
+# name!=Fortnite Tracker
+# name!=Game Jolt
+# name!=Gamer DVR
+# name!=Habbo.com
+# name!=MCName (Minecraft)
+# name!=MCUUID (Minecraft)
+# name!=Minecraft List
+# name!=Mod DB
+# name!=TF2 Backpack Examiner
+
+# --- Health ---
+# name!=Garmin connect
+# name!=My Fitness Pal Author
+# name!=My Fitness Pal Community
+# name!=Sports Tracker
+
+# --- Hobby ---
+# name!=Archive Of Our Own Account
+# name!=Casting Call Club
+# name!=Independent academia
+# name!=Learn CW Online
+# name!=Moto Trip
+# name!=Ultimate Guitar
+# name!=Ultras Diary
+
+# --- Images ---
+# name!=Fur Affinity
+# name!=Giphy (Channel)
+
+# --- Misc ---
+# name!=Internet Archive User Search
+# name!=Joe Monster
+
+# --- Music ---
+# name!=Avid Community
+# name!=Genius (Artists)
+# name!=Genius (Users)
+
+# --- News ---
+# name!=Daily Kos
+# name!=Muck Rack
+
+# --- Political ---
+# name!=Patriots Win
+
+# --- Shopping ---
+# name!=Yahoo! JAPAN Auction
+
+# --- Social ---
+# name!=about.me
+# name!=Airline_Pilot_Life
+
+# --- Xx Nsfw Xx ---
+# name!=OnlySearch (OnlyFans)
+# name!=Pornhub Porn Stars
+# name!=Pornhub Users
+# name!=XVIDEOS-models
+# name!=XVIDEOS-profiles
