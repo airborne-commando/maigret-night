@@ -4,7 +4,10 @@
 # This list works as an even more interactive and verbose filtering system, to use the filters remove the '#' on each line and to comment out a site re-add the '#'.
 # For use with maigret night https://github.com/airborne-commando/maigret-night in the crow tab
 
-# --- Categories ---
+# Categories of each site, note that each Categories are site wide, read the whatsmyname database and RTFM.
+
+# --- Site List by category ---
+
 # cat!=archived
 # cat!=art
 # cat!=blog
@@ -25,13 +28,12 @@
 # cat!=tech
 # cat!=political
 
+# --- Site List by category ---
 
 # Site list section, here are the categories with each.
 # Feel free to uncomment on which you want to filter.
 
-# --- Site List ---
-
-
+# --- Site List by name ---
 # --- Social ---
 # name!=Telegram
 # name!=Instagram
@@ -49,18 +51,21 @@
 # name!=ok.ru
 # name!=zhihu
 # name!=kwai
+# --- Social ---
 
 # --- Blog ---
 # name!=Blogspot
 # name!=Naver
 # name!=Substack
 # name!=weebly
+# --- Blog ---
 
 # --- Video / Entertainment ---
 # name!=Twitch
 # name!=YouNow
 # name!=smule
 # name!=Tenor
+# --- Video / Entertainment ---
 
 # --- Developer / Tech ---
 # name!=DeviantArt
@@ -71,6 +76,7 @@
 # name!=Disqus
 # name!=VIEWBUG
 # name!=Gravatar
+# --- Developer / Tech ---
 
 # --- Links / Profile Portfolios ---
 # name!=Linktree
@@ -81,21 +87,25 @@
 # name!=gumroad
 # name!=spotify
 # name!=kik.me
+# --- Links / Profile Portfolios ---
 
 # --- Travel / Real Estate ---
 # name!=tripadvisor
 # name!=Polarsteps
 # name!=Houzz
+# --- Travel / Real Estate ---
 
 # --- Business / Personal Finance ---
 # name!=Etoro
 # name!=Venmo
 # name!=Calendy
+# --- Business / Personal Finance ---
 
 # --- Education / Reading ---
 # name!=Znanija
 # name!=Wattpad
 # name!=Duolingo
+# --- Education / Reading ---
 
 # --- Shopping / Music / Misc ---
 # name!=Poshmark
@@ -104,9 +114,11 @@
 # name!=SoundCloud
 # name!=BodyBuilding.com
 # name!=RuTracker.org
+# --- Shopping / Music / Misc ---
+# --- Site List by name ---
 
+# --- Site List by URI ---
 # --- API / Search results ---
-
 # --- Gaming ---
 # uri_check!=https://api.tracker.gg/api/v2/apex/standard/profile/origin/{account}
 # uri_check!=https://fortnitetracker.com/profile/all/{account}
@@ -119,20 +131,39 @@
 # uri_check!=https://psnprofiles.com/xhr/search/users?q={account}
 # uri_check!=http://www.tf2items.com/id/{account}/
 # uri_check!=https://www.xboxgamertag.com/search/{account}
+# --- Gaming ---
+# --- API / Search results ---
+
 
 # --- social ---
+# ---  GitLab Arch ---
 # uri_check!=https://gitlab.archlinux.org/api/v4/users?username={account}
+
+# ---  Brand ---
 # uri_check!=https://bio.site/{account}
+
+# ---  Blue Sky ---
 # uri_check!=https://bsky.app/profile/{account}
 # uri_check!=https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={account}.bsky.social
+
+# ---  Discord ---
 # uri_check!=https://discord.com/api/v9/invites/{account}?with_counts=true&with_expiration=true
 # uri_check!=https://discord.com/api/v9/unique-username/username-attempt-unauthed
-# uri_check!=https://expressional.social/api/v1/accounts/lookup?acct={account}
-# uri_check!=https://federated.press/api/v1/accounts/lookup?acct={account}
+
+# ---  Fodors community ---
 # uri_check!=https://www.fodors.com/community/profile/{account}/forum-activity
-# uri_check!=https://fosstodon.org/api/v1/accounts/lookup?acct={account}
+
+# ---  FreelanceHunt ---
 # uri_check!=https://freelancehunt.com/en/employer/{account}.html
 # uri_check!=https://freelancehunt.com/en/freelancer/{account}.html
+
+# ---  Nifty Gateway ---
+# uri_check!=https://api.niftygateway.com/user/profile-and-offchain-nifties-by-url/?profile_url={account}
+
+# ---  Mastodon/Fediverse ---
+# uri_check!=https://expressional.social/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://federated.press/api/v1/accounts/lookup?acct={account}
+# uri_check!=https://fosstodon.org/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://graphics.social/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://hcommons.social/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://historians.social/api/v1/accounts/lookup?acct={account}
@@ -152,18 +183,20 @@
 # uri_check!=https://vkl.world/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://vmst.io/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://poweredbygay.social/api/v1/accounts/lookup?acct={account}
-# uri_check!=https://api.niftygateway.com/user/profile-and-offchain-nifties-by-url/?profile_url={account}
 
 # --- Instagram ---
-
 # uri_check!=https://imginn.com/{account}/
 
-# --- Instagram ---
-
+# --- Open Street Map ---
 # uri_check!=https://wiki.openstreetmap.org/w/api.php?action=query&format=json&list=users&ususers={account}
-# uri_check!=https://www.ourfreedombook.com/{account}
+
+# --- LGBT---
 # uri_check!=https://queer.pl/user/{account}
+
+# --- ALT Media ---
 # uri_check!=https://usa.life/{account}
+
+# --- social ---
 
 # --- Hobby ---
 # uri_check!=https://archiveofourown.org/users/{account}
@@ -190,8 +223,6 @@
 # uri_check!=https://community.avid.com/members/{account}/default.aspx
 # uri_check!=https://genius.com/artists/{account}
 # uri_check!=https://genius.com/{account}
-
-# --- Music / Hobby ---
 # uri_check!=https://www.ultimate-guitar.com/u/{account}
 
 # --- Video ---
@@ -221,6 +252,7 @@
 # --- Archive --- 
 # uri_check!=https://filmot.com/channelsearch/{account}
 # uri_check!=https://filmot.com/unlistedSearch?channelQuery={account}&sortField=uploaddate&sortOrder=desc&
+# uri_check!=https://rf-archive.com/users.php?s_tag={account}
 
 # --- Images --- 
 # uri_check!=https://www.furaffinity.net/user/{account}/
@@ -255,9 +287,6 @@
 # uri_check!=https://chaturbate.com/{account}
 # uri_check!=https://onlyfans.com/{account}
 
-# --- Archive ---
-# uri_check!=https://rf-archive.com/users.php?s_tag={account}
-
 # --- Sports ---
 # uri_check!=http://ultrasdiary.pl/u/{account}
 # uri_check!=https://api.sports-tracker.com/apiserver/v1/user/name/{account}
@@ -270,6 +299,7 @@
 # Yahoo!Auctions Japan
 # uri_check!=https://auctions.yahoo.co.jp/follow/list/{account}
 
+
 # --- Internet Archive ---
 # uri_check!=https://archive.org/wayback/available?url=https://www.fotolog.com/{account}
 # uri_check!=http://archive.org/wayback/available?url=https://parler.com/profile/{account}/posts
@@ -278,3 +308,7 @@
 # uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}
 # uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}/status/*
 # uri_check!=https://archive.org/advancedsearch.php?q={account}&output=json
+
+# --- Defunct ---
+# uri_check!=https://www.ourfreedombook.com/{account}
+# --- Site List by URI ---
