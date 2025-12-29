@@ -185,7 +185,7 @@
 # uri_check!=https://poweredbygay.social/api/v1/accounts/lookup?acct={account}
 
 # --- Instagram ---
-# uri_check!=https://imginn.com/{account}/
+# uri_check!=https://imginn.com/{account}
 
 # --- Open Street Map ---
 # uri_check!=https://wiki.openstreetmap.org/w/api.php?action=query&format=json&list=users&ususers={account}
