@@ -86,7 +86,7 @@
 # name!=Lemon8
 # name!=gumroad
 # name!=spotify
-# name!=kik.me
+# name!=Kik
 # --- Links / Profile Portfolios ---
 
 # --- Travel / Real Estate ---
