@@ -37,6 +37,7 @@
 # --- Social ---
 # name!=Telegram
 # name!=Instagram
+# name!=Instagram_archives
 # name!=Reddit
 # name!=twitter
 # name!=X
