@@ -73,12 +73,14 @@
 # name!=Gravatar
 
 # --- Links / Profile Portfolios ---
-# name!=Linktree
+# name=Linktree
 # name!=AllMyLinks
 # name!=about.me
 # name!=Ko-Fi
 # name!=Lemon8
 # name!=gumroad
+# name!=spotify
+# name!=kik.me
 
 # --- Travel / Real Estate ---
 # name!=tripadvisor
@@ -107,123 +109,31 @@
 
 # --- Gaming ---
 # uri_check!=https://api.tracker.gg/api/v2/apex/standard/profile/origin/{account}
+# uri_check!=https://fortnitetracker.com/profile/all/{account}
+# uri_check!=https://gamejolt.com/site-api/web/profile/@{account}/
+# uri_check!=https://gamerdvr.com/gamer/{account}
+# uri_check!=https://mcname.info/en/search?q={account}
+# uri_check!=https://playerdb.co/api/player/minecraft/{account}
+# uri_check!=https://minecraftlist.com/players/{account}
+# uri_check!=https://www.moddb.com/html/scripts/autocomplete.php?a=username&q={account}
+# uri_check!=https://psnprofiles.com/xhr/search/users?q={account}
+# uri_check!=http://www.tf2items.com/id/{account}/
+# uri_check!=https://www.xboxgamertag.com/search/{account}
 
 # --- social ---
 # uri_check!=https://gitlab.archlinux.org/api/v4/users?username={account}
-
-# --- Hobby ---
-# uri_check!=https://archiveofourown.org/users/{account}
-
-# --- Tech ---
-# uri_check!=https://forum.arduino.cc/u/{account}.json
-# uri_check!=https://projecthub.arduino.cc/{account}
-
-# --- Art ---
-# uri_check!=https://artistsnclients.com/people/{account}
-
-# --- Music ---
-# uri_check!=https://community.avid.com/members/{account}/default.aspx
-
-# --- Video ---
-# uri_check!=https://www.bigo.tv/user/{account}
-
-# --- Social ---
 # uri_check!=https://bio.site/{account}
-
-# --- Social ---
 # uri_check!=https://bsky.app/profile/{account}
 # uri_check!=https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={account}.bsky.social
-
-# --- finance ---
-# uri_check!=https://app.buymeacoffee.com/api/v1/check_availability
-
-# --- Coding ---
-# uri_check!=https://www.codeproject.com/Members/{account}
-
-# --- Tech ---
-# uri_check!=https://community.adobe.com/t5/forums/searchpage/tab/user?q={account}
-
-# --- News ---
-# uri_check!=https://www.dailykos.com/user/{account}
-
-# --- Social ---
 # uri_check!=https://discord.com/api/v9/invites/{account}?with_counts=true&with_expiration=true
 # uri_check!=https://discord.com/api/v9/unique-username/username-attempt-unauthed
-
-# --- Coding ---
-# uri_check!=https://hub.docker.com/v2/orgs/{account}/
-# uri_check!=https://hub.docker.com/v2/users/{account}/
-
-# --- finance ---
-# uri_check!=https://www.donationalerts.com/api/v1/user/{account}/donationpagesettings
-
-# --- Tech --- 
-# uri_check!=https://community.evocms.ru/users/?search={account}
-
-# --- Social --- 
 # uri_check!=https://expressional.social/api/v1/accounts/lookup?acct={account}
-
-# --- Social --- 
 # uri_check!=https://federated.press/api/v1/accounts/lookup?acct={account}
-
-# --- Archive --- 
-# uri_check!=https://filmot.com/channelsearch/{account}
-# uri_check!=https://filmot.com/unlistedSearch?channelQuery={account}&sortField=uploaddate&sortOrder=desc&
-
-# --- Social --- 
 # uri_check!=https://www.fodors.com/community/profile/{account}/forum-activity
-
-# --- Gaming --- 
-# uri_check!=https://fortnitetracker.com/profile/all/{account}
-
-# --- Social --- 
 # uri_check!=https://fosstodon.org/api/v1/accounts/lookup?acct={account}
-
-# --- Social --- 
 # uri_check!=https://freelancehunt.com/en/employer/{account}.html
 # uri_check!=https://freelancehunt.com/en/freelancer/{account}.html
-
-# --- Images --- 
-# uri_check!=https://www.furaffinity.net/user/{account}/
-
-# --- Gaming --- 
-# uri_check!=https://gamejolt.com/site-api/web/profile/@{account}/
-
-# --- Gaming --- 
-# uri_check!=https://gamerdvr.com/gamer/{account}
-
-# --- Health --- 
-# uri_check!=https://connect.garmin.com/modern/profile/{account}
-
-# --- Music --- 
-# uri_check!=https://genius.com/artists/{account}
-# uri_check!=https://genius.com/{account}
-
-# --- images --- 
-# uri_check!=https://giphy.com/channel/{account}
-
-# --- coding --- 
-# uri_check!=https://api.github.com/users/{account}/gists
-
-# --- coding --- 
-# uri_check!=https://gitlab.gnome.org/api/v4/users?username={account}
-# uri_check!=https://extensions.gnome.org/accounts/profile/{account}
-
-# --- social --- 
 # uri_check!=https://graphics.social/api/v1/accounts/lookup?acct={account}
-
-# --- Tech --- 
-# uri_check!=https://greasyfork.org/en/users?q={account}
-
-# --- business ---
-# uri_check!=https://freelance.habr.com/freelancers/{account}/employer
-# uri_check!=https://freelance.habr.com/freelancers/{account}
-# uri_check!=https://qna.habr.com/user/{account}
-
-# --- Tech ---
-# uri_check!=https://news.ycombinator.com/user?id={account}
-
-# --- Social ---
 # uri_check!=https://hcommons.social/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://historians.social/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://hometech.social/api/v1/accounts/lookup?acct={account}
@@ -242,114 +152,119 @@
 # uri_check!=https://vkl.world/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://vmst.io/api/v1/accounts/lookup?acct={account}
 # uri_check!=https://poweredbygay.social/api/v1/accounts/lookup?acct={account}
-
-# --- Hobby ---
-# uri_check!=https://independent.academia.edu/{account}
-
-# --- Social ---
-# uri_check!=https://imginn.com/{account}/
-
-# --- Tech ---
-# uri_check!=https://forum.ixbt.com/users.cgi?id=info:{account}
-
-# --- Misc ---
-# uri_check!=https://joemonster.org/bojownik/{account}
-
-# --- Hobby ---
-# uri_check!=https://lcwo.net/api/user_exists.php
-
-# --- Tech ---
-# uri_check!=https://malpedia.caad.fkie.fraunhofer.de/actor/{account}
-
-# --- Health ---
-# uri_check!=https://www.massageanywhere.com/profile/{account}
-
-# --- Gaming ---
-# uri_check!=https://mcname.info/en/search?q={account}
-# uri_check!=https://playerdb.co/api/player/minecraft/{account}
-# uri_check!=https://minecraftlist.com/players/{account}
-
-# --- Dating ---
-# uri_check!=https://www.meetme.com/{account}
-
-# --- Gaming ---
-# uri_check!=https://www.moddb.com/html/scripts/autocomplete.php?a=username&q={account}
-
-# --- Hobby ---
-# uri_check!=https://moto-trip.com/profil/{account}
-
-# --- News ---
-# uri_check!=https://muckrack.com/{account}
-
-# --- Health ---
-# uri_check!=https://blog.myfitnesspal.com/author/{account}/
-# uri_check!=https://community.myfitnesspal.com/en/profile/{account}
-
-# --- Social ---
 # uri_check!=https://api.niftygateway.com/user/profile-and-offchain-nifties-by-url/?profile_url={account}
 
-# --- Social ---
+# --- Instagram ---
+
+# uri_check!=https://imginn.com/{account}/
+
+# --- Instagram ---
+
 # uri_check!=https://wiki.openstreetmap.org/w/api.php?action=query&format=json&list=users&ususers={account}
-
-# --- Social ---
 # uri_check!=https://www.ourfreedombook.com/{account}
+# uri_check!=https://queer.pl/user/{account}
+# uri_check!=https://usa.life/{account}
 
-
-# --- Politics ---
-# uri_check!=https://patriots.win/u/{account}/
-
-# --- Gaming ---
-# uri_check!=https://psnprofiles.com/xhr/search/users?q={account}
+# --- Hobby ---
+# uri_check!=https://archiveofourown.org/users/{account}
+# uri_check!=https://independent.academia.edu/{account}
+# uri_check!=https://lcwo.net/api/user_exists.php
+# uri_check!=https://moto-trip.com/profil/{account}
 
 # --- Tech ---
+# uri_check!=https://forum.arduino.cc/u/{account}.json
+# uri_check!=https://projecthub.arduino.cc/{account}
+# uri_check!=https://community.adobe.com/t5/forums/searchpage/tab/user?q={account}
+# uri_check!=https://community.evocms.ru/users/?search={account}
+# uri_check!=https://greasyfork.org/en/users?q={account}
+# uri_check!=https://news.ycombinator.com/user?id={account}
+# uri_check!=https://forum.ixbt.com/users.cgi?id=info:{account}
+# uri_check!=https://malpedia.caad.fkie.fraunhofer.de/actor/{account}
 # uri_check!=https://pollev.com/proxy/api/users/{account}
-
-# --- Porn ---
-# uri_check!=https://www.pornhub.com/pornstar/{account}
-# uri_check!=https://www.pornhub.com/users/{account}
-
-# --- Tech ---
 # uri_check!=https://discuss.privacyguides.net/u/{account}.json
 
-# --- social ---
-# uri_check!=https://queer.pl/user/{account}
+# --- Art ---
+# uri_check!=https://artistsnclients.com/people/{account}
 
-# --- Archive ---
-# uri_check!=https://rf-archive.com/users.php?s_tag={account}
-
-# --- health ---
-# uri_check!=https://speakerdeck.com/{account}/
-
-# --- health ---
-# uri_check!=https://api.sports-tracker.com/apiserver/v1/user/name/{account}
-
-# --- Gaming ---
-# uri_check!=http://www.tf2items.com/id/{account}/
-
-# --- business ---
-# uri_check!=https://uefconnect.uef.fi/en/{account}/
+# --- Music ---
+# uri_check!=https://community.avid.com/members/{account}/default.aspx
+# uri_check!=https://genius.com/artists/{account}
+# uri_check!=https://genius.com/{account}
 
 # --- Music / Hobby ---
 # uri_check!=https://www.ultimate-guitar.com/u/{account}
 
-# --- Sports ---
-# uri_check!=http://ultrasdiary.pl/u/{account}/
-
 # --- Video ---
-# UnlistedVideosAPI
+# uri_check!=https://www.bigo.tv/user/{account}
+# uri_check!=https://www.youtube.com/user/{account}/about
+# uri_check!=https://www.youtube.com/@{account}
 # uri_check!=https://unlistedvideos.com/search.php?user={account}
 
-# --- Social Network ---
-# USA.lifeAPI
-# uri_check!=https://usa.life/{account}
+
+# --- finance ---
+# uri_check!=https://app.buymeacoffee.com/api/v1/check_availability
+# uri_check!=https://www.donationalerts.com/api/v1/user/{account}/donationpagesettings
+
+# --- Coding ---
+# uri_check!=https://www.codeproject.com/Members/{account}
+# uri_check!=https://hub.docker.com/v2/orgs/{account}/
+# uri_check!=https://hub.docker.com/v2/users/{account}/
+# uri_check!=https://api.github.com/users/{account}/gists
+# uri_check!=https://gitlab.gnome.org/api/v4/users?username={account}
+# uri_check!=https://extensions.gnome.org/accounts/profile/{account}
+
+# --- News ---
+# uri_check!=https://www.dailykos.com/user/{account}
+# uri_check!=https://muckrack.com/{account}
+
+
+# --- Archive --- 
+# uri_check!=https://filmot.com/channelsearch/{account}
+# uri_check!=https://filmot.com/unlistedSearch?channelQuery={account}&sortField=uploaddate&sortOrder=desc&
+
+# --- Images --- 
+# uri_check!=https://www.furaffinity.net/user/{account}/
+# uri_check!=https://giphy.com/channel/{account}
+
+# --- Health --- 
+# uri_check!=https://connect.garmin.com/modern/profile/{account}
+# uri_check!=https://blog.myfitnesspal.com/author/{account}/
+# uri_check!=https://community.myfitnesspal.com/en/profile/{account}
+# uri_check!=https://www.massageanywhere.com/profile/{account}
+# uri_check!=https://speakerdeck.com/{account}/
+
+# --- business ---
+# uri_check!=https://freelance.habr.com/freelancers/{account}/employer
+# uri_check!=https://freelance.habr.com/freelancers/{account}
+# uri_check!=https://qna.habr.com/user/{account}
+# uri_check!=https://uefconnect.uef.fi/en/{account}
+
+# --- Misc ---
+# uri_check!=https://joemonster.org/bojownik/{account}
+
+# --- Dating ---
+# uri_check!=https://www.meetme.com/{account}
+
+# --- Politics ---
+# uri_check!=https://patriots.win/u/{account}/
+
+# --- Porn ---
+# uri_check!=https://www.pornhub.com/pornstar/{account}
+# uri_check!=https://www.pornhub.com/users/{account}
+# uri_check!=https://www.xvideos.com/profiles/{account}
+# uri_check!=https://chaturbate.com/{account}
+# uri_check!=https://onlyfans.com/{account}
+
+# --- Archive ---
+# uri_check!=https://rf-archive.com/users.php?s_tag={account}
+
+# --- Sports ---
+# uri_check!=http://ultrasdiary.pl/u/{account}
+# uri_check!=https://api.sports-tracker.com/apiserver/v1/user/name/{account}
 
 # --- WordPress ---
 # uri_check!=https://public-api.wordpress.com/rest/v1.1/sites/{account}.wordpress.com
 # uri_check!=https://login.wordpress.org/wp-json/wporg/v1/username-available/{account}
-
-# --- Gaming ---
-# XboxGamertag Search
-# uri_check!=https://www.xboxgamertag.com/search/{account}
 
 # --- Yahoo ---
 # Yahoo!Auctions Japan
@@ -363,116 +278,3 @@
 # uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}
 # uri_check!=http://archive.org/wayback/available?url=https://twitter.com/{account}/status/*
 # uri_check!=https://archive.org/advancedsearch.php?q={account}&output=json
-
-
-# --- Video ---
-
-# uri_check!=https://www.youtube.com/user/{account}/about
-# uri_check!=https://www.youtube.com/@{account}
-
-
-# --- You don't have to uncomment any of these ---
-# sites with spaces inside it DO NOT UNCOMMENT, compare with WMN database on github.
-
-# --- Archived ---
-
-# name!=Filmot Channel Search
-# name!=Filmot Unlisted Videos
-# name!=Fotolog Archived Profile
-# name!=Parler archived posts
-# name!=Parler archived profile
-# name!=RaidForums - Archive
-# name!=Taringa Archived Profile
-# name!=Twitter archived profile
-# name!=Twitter archived tweets
-# name!=Unlisted Videos
-
-# --- Art ---
-# name!=Artists & Clients
-
-# --- Blog ---
-# name!=WordPress.com (Deleted)
-# name!=WordPress.com (Private)
-# name!=WordPress.com (Public)
-# name!=WordPress.org (Forums)
-# name!=WordPress.org (Profiles)
-
-# --- Business ---
-# name!=UEF CONNECT
-
-# --- Coding ---
-# name!=Code Project
-# name!=Docker Hub (Organization)
-# name!=Docker Hub (User)
-# name!=GitHub Gists
-# name!=GNOME (GitLab)
-# name!=GNOME (Shell Extensions)
-# name!=Habr Q&A
-
-# --- Dating ---
-# name!=meet me
-
-# --- Finance ---
-# name!=Buy Me a Coffee
-# name!=Donation Alerts
-
-# --- Gaming ---
-# name!=Apex Legends
-# name!=Fortnite Tracker
-# name!=Game Jolt
-# name!=Gamer DVR
-# name!=Habbo.com
-# name!=MCName (Minecraft)
-# name!=MCUUID (Minecraft)
-# name!=Minecraft List
-# name!=Mod DB
-# name!=TF2 Backpack Examiner
-
-# --- Health ---
-# name!=Garmin connect
-# name!=My Fitness Pal Author
-# name!=My Fitness Pal Community
-# name!=Sports Tracker
-
-# --- Hobby ---
-# name!=Archive Of Our Own Account
-# name!=Casting Call Club
-# name!=Independent academia
-# name!=Learn CW Online
-# name!=Moto Trip
-# name!=Ultimate Guitar
-# name!=Ultras Diary
-
-# --- Images ---
-# name!=Fur Affinity
-# name!=Giphy (Channel)
-
-# --- Misc ---
-# name!=Internet Archive User Search
-# name!=Joe Monster
-
-# --- Music ---
-# name!=Avid Community
-# name!=Genius (Artists)
-# name!=Genius (Users)
-
-# --- News ---
-# name!=Daily Kos
-# name!=Muck Rack
-
-# --- Political ---
-# name!=Patriots Win
-
-# --- Shopping ---
-# name!=Yahoo! JAPAN Auction
-
-# --- Social ---
-# name!=about.me
-# name!=Airline_Pilot_Life
-
-# --- Xx Nsfw Xx ---
-# name!=OnlySearch (OnlyFans)
-# name!=Pornhub Porn Stars
-# name!=Pornhub Users
-# name!=XVIDEOS-models
-# name!=XVIDEOS-profiles
