@@ -1,6 +1,9 @@
 # This is your filter list, use python syntax in sublime or any advance text editor for easy commenting.
 # Categories, use to mute everything; see https://github.com/WebBreacher/WhatsMyName/blob/main/wmn-data.json and https://github.com/WebBreacher/WhatsMyName/tree/main?tab=readme-ov-file#how-does-it-work
 # This uses known info and categories found in WhatsMyName if I've missed anything else just use the category or search the DB and add into it.
+# To add a site follow the sites uri structure if found by crow: 
+# uri_check!=https://archiveofourown.org/users/{account}
+# can also add in just the site name, typically it's done with [sitename] such as name!=Twitch would be [Twitch].
 # This list works as an even more interactive and verbose filtering system, to use the filters remove the '#' on each line and to comment out a site re-add the '#'.
 # For use with maigret night https://github.com/airborne-commando/maigret-night in the crow tab
 
