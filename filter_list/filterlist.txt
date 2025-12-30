@@ -4,6 +4,7 @@
 # To add a site follow the sites uri structure if found by crow: 
 # uri_check!=https://archiveofourown.org/users/{account}
 # To view every archived tweet from wayback machine, use https://web.archive.org/cdx/search/cdx?url=twitter.com/{account}/status/*&output=json&filter=statuscode:200 in your browsers url replace {account}
+# also simply go visit https://web.archive.org/web/*/twitter.com/{account}/* or https://web.archive.org/web/*/twitter.com/{account}/status/*
 # can also add in just the site name, typically it's done with [sitename] such as name!=Twitch would be [Twitch].
 # This list works as an even more interactive and verbose filtering system, to use the filters remove the '#' on each line and to comment out a site re-add the '#'.
 # For use with maigret night https://github.com/airborne-commando/maigret-night in the crow tab
