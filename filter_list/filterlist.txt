@@ -290,6 +290,7 @@
 # uri_check!=https://www.xvideos.com/profiles/{account}
 # uri_check!=https://chaturbate.com/{account}
 # uri_check!=https://onlyfans.com/{account}
+# uri_check!=https://onlysearch.co/api/search?keyword={account}
 
 # --- Sports ---
 # uri_check!=http://ultrasdiary.pl/u/{account}
