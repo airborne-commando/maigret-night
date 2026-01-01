@@ -84,6 +84,7 @@ class BlackbirdConfig:
         
         # Initialize lists
         self.username_sites = []
+        self.email_sites = []  # Add this for email search
         self.metadata_params = {}
         self.include_categories = []
         self.exclude_categories = []
@@ -141,135 +142,183 @@ def find_blackbird_assets():
 BLACKBIRD_ASSETS_DIR = find_blackbird_assets()
 
 def find_blackbird_root():
-    """Find the Blackbird installation root directory"""
-    possible_paths = [
-        # Current project structure
-        os.path.join(CURRENT_DIR, '..', 'blackbird'),
-        os.path.join(CURRENT_DIR, 'blackbird'),
-        
-        # Common installation locations
-        os.path.join('/usr', 'local', 'lib', 'blackbird'),
-        os.path.join('/usr', 'lib', 'blackbird'),
-        os.path.join('/opt', 'blackbird'),
-        
-        # User installations
-        os.path.join(os.path.expanduser('~'), '.local', 'lib', 'blackbird'),
-        os.path.join(os.path.expanduser('~'), 'blackbird'),
-        os.path.join(os.path.expanduser('~'), '.blackbird'),
-        
-        # Your specific location based on data files
-        os.path.dirname(os.path.dirname(CURRENT_DIR)),  # Go up two levels from venvs/blackbird/blackbird_web
-        CURRENT_DIR,  # Current directory itself
-        
-        # Check data directory's parent
-        os.path.dirname(os.path.dirname(BLACKBIRD_ASSETS_DIR)) if BLACKBIRD_ASSETS_DIR else None,
+    """Find the Blackbird installation root directory - Universal version"""
+    print("\n[Searching for Blackbird installation...]")
+    
+    # List of signatures that identify a Blackbird installation
+    SIGNATURES = [
+        ('blackbird.py', 'main script'),
+        (os.path.join('src', 'modules'), 'modules directory'),
+        ('data/wmn-data.json', 'username data file'),
+        ('assets', 'assets directory'),
+        ('requirements.txt', 'requirements file with blackbird'),
     ]
     
-    # Filter out None values
-    possible_paths = [p for p in possible_paths if p]
+    # Helper function to check if a directory is a Blackbird installation
+    def is_blackbird_dir(directory):
+        """Check if directory contains Blackbird signatures"""
+        for signature, description in SIGNATURES:
+            path = os.path.join(directory, signature)
+            if os.path.exists(path):
+                return True, f"contains {description}"
+        return False, None
     
-    print("Searching for Blackbird in the following locations:")
-    for path in possible_paths:
+    # 1. Check current directory and parents
+    current_dir = os.path.abspath(CURRENT_DIR)
+    for i in range(5):  # Check up to 5 levels up
+        is_bb, reason = is_blackbird_dir(current_dir)
+        if is_bb:
+            print(f"✓ Found Blackbird at: {current_dir} ({reason})")
+            return current_dir
+        
+        # Move up one directory
+        parent = os.path.dirname(current_dir)
+        if parent == current_dir:  # Reached filesystem root
+            break
+        current_dir = parent
+    
+    # 2. Check common installation paths
+    common_paths = []
+    
+    # Add user home paths
+    home = os.path.expanduser("~")
+    common_paths.extend([
+        os.path.join(home, 'blackbird'),
+        os.path.join(home, '.blackbird'),
+        os.path.join(home, '.local', 'share', 'blackbird'),
+        os.path.join(home, '.local', 'lib', 'blackbird'),
+        os.path.join(home, 'Desktop', 'blackbird'),
+        os.path.join(home, 'Documents', 'blackbird'),
+        os.path.join(home, 'Projects', 'blackbird'),
+    ])
+    
+    # Add system paths
+    common_paths.extend([
+        '/usr/local/share/blackbird',
+        '/usr/local/lib/blackbird',
+        '/usr/share/blackbird',
+        '/usr/lib/blackbird',
+        '/opt/blackbird',
+    ])
+    
+    # Add paths based on current directory structure
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    common_paths.extend([
+        os.path.join(script_dir, '..', '..', 'blackbird'),
+        os.path.join(script_dir, '..', 'blackbird'),
+        os.path.join(script_dir, 'blackbird'),
+    ])
+    
+    # Check all common paths
+    for path in common_paths:
         abs_path = os.path.abspath(path)
-        print(f"  - {abs_path}")
         if os.path.exists(abs_path):
-            # Check for Blackbird structure
-            src_path = os.path.join(abs_path, 'src')
-            if os.path.exists(src_path):
-                print(f"✓ Found Blackbird at: {abs_path}")
+            is_bb, reason = is_blackbird_dir(abs_path)
+            if is_bb:
+                print(f"✓ Found Blackbird at: {abs_path} ({reason})")
                 return abs_path
-            
-            # Also check if it's the src directory itself
-            if abs_path.endswith('src'):
-                parent_path = os.path.dirname(abs_path)
-                print(f"✓ Found Blackbird src, using parent: {parent_path}")
-                return parent_path
     
-    print("✗ Could not find Blackbird root directory")
+    # 3. Check environment variable
+    env_path = os.environ.get('BLACKBIRD_PATH')
+    if env_path and os.path.exists(env_path):
+        abs_env_path = os.path.abspath(env_path)
+        is_bb, reason = is_blackbird_dir(abs_env_path)
+        if is_bb:
+            print(f"✓ Found Blackbird from BLACKBIRD_PATH: {abs_env_path} ({reason})")
+            return abs_env_path
     
-    # Try to find by searching for specific files
-    print("\nSearching for Blackbird files...")
-    search_dirs = [
-        os.path.dirname(CURRENT_DIR),
-        os.path.expanduser('~'),
-        '/',
-    ]
+    # 4. Try to import as package (if installed via pip)
+    try:
+        import blackbird
+        package_path = os.path.dirname(os.path.abspath(blackbird.__file__))
+        print(f"✓ Found Blackbird package at: {package_path}")
+        return package_path
+    except ImportError:
+        pass
     
-    for search_dir in search_dirs:
-        print(f"Searching in {search_dir}...")
-        try:
-            for root, dirs, files in os.walk(search_dir, topdown=True):
-                # Limit depth
-                if root.count(os.sep) - search_dir.count(os.sep) > 3:
-                    dirs[:] = []  # Don't go deeper
-                    continue
-                
-                # Check for Blackbird files
-                if 'blackbird.py' in files or 'requirements.txt' in files:
-                    if 'src' in dirs:
-                        print(f"✓ Found Blackbird-like structure at: {root}")
-                        return root
-        except Exception as e:
-            print(f"  Error searching {search_dir}: {e}")
-            continue
+    print("✗ Could not find Blackbird installation")
+    print("\nTo fix this:")
+    print("1. Set the BLACKBIRD_PATH environment variable:")
+    print("   export BLACKBIRD_PATH=/path/to/your/blackbird")
+    print("2. Run this script from within the blackbird directory")
+    print("3. Or install blackbird with: pip install blackbird-osint")
     
     return None
 
 def load_blackbird_modules():
-    """Try to load Blackbird modules with multiple strategies"""
+    """Load Blackbird modules with direct path to your installation"""
     
-    # Strategy 1: Try direct import from installed package
+    print("\n=== Loading Blackbird Modules ===")
+    
+    # First, find the blackbird root
+    blackbird_root = find_blackbird_root()
+    
+    if not blackbird_root:
+        print("✗ Could not find Blackbird installation")
+        create_minimal_mocks()
+        return False
+    
+    print(f"✓ Found Blackbird at: {blackbird_root}")
+    
+    # Check if we need to add src directory to sys.path
+    src_dir = os.path.join(blackbird_root, 'src')
+    if os.path.exists(src_dir):
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+            print(f"✓ Added src directory to sys.path: {src_dir}")
+    
+    # Also add the blackbird_root itself to sys.path
+    if blackbird_root not in sys.path:
+        sys.path.insert(0, blackbird_root)
+        print(f"✓ Added blackbird root to sys.path: {blackbird_root}")
+    
+    # Try to import modules
     try:
         import modules
-        print("✓ Successfully imported Blackbird modules directly")
-        return True
-    except ImportError:
-        print("✗ Direct import failed")
-    
-    # Strategy 2: Find and add to sys.path
-    blackbird_root = find_blackbird_root()
-    if blackbird_root:
-        src_path = os.path.join(blackbird_root, 'src')
-        if os.path.exists(src_path) and src_path not in sys.path:
-            sys.path.insert(0, src_path)
-            print(f"✓ Added Blackbird src to path: {src_path}")
-            
-            # Try import again
-            try:
-                import modules
-                print("✓ Successfully imported after adding to path")
-                return True
-            except ImportError as e:
-                print(f"✗ Import still failed: {e}")
-    
-    # Strategy 3: Check if we're in the blackbird directory
-    current_files = os.listdir(CURRENT_DIR)
-    parent_files = os.listdir(os.path.dirname(CURRENT_DIR))
-    
-    if 'modules' in current_files or 'modules' in parent_files:
-        print("✓ Found modules directory nearby")
-        # Add parent directory
-        parent_dir = os.path.dirname(CURRENT_DIR)
-        if parent_dir not in sys.path:
-            sys.path.insert(0, parent_dir)
+        print("✓ Successfully imported Blackbird modules")
         
-        # Try to find src directory
-        possible_src_dirs = [
-            os.path.join(parent_dir, 'src'),
-            os.path.join(CURRENT_DIR, 'src'),
-            os.path.join(parent_dir, '..', 'src'),
+        # Test specific imports
+        test_modules = [
+            ('modules.utils.http_client', 'HTTP Client'),
+            ('modules.utils.parse', 'Parse'),
+            ('modules.utils.filter', 'Filter'),
+            ('modules.whatsmyname.list_operations', 'List Operations'),
+            ('modules.core.email', 'Email Module'),
         ]
         
-        for src_dir in possible_src_dirs:
-            if os.path.exists(src_dir) and src_dir not in sys.path:
-                sys.path.insert(0, src_dir)
-                print(f"✓ Added src directory: {src_dir}")
-    
-    # Strategy 4: Create minimal mock modules
-    print("⚠ Creating minimal mock modules for basic functionality")
-    create_minimal_mocks()
-    
-    return False
+        print("\nModule import status:")
+        for module_name, display_name in test_modules:
+            try:
+                __import__(module_name)
+                print(f"  {display_name}: ✓")
+            except ImportError as e:
+                print(f"  {display_name}: ✗ ({e})")
+        
+        return True
+        
+    except ImportError as e:
+        print(f"✗ Error importing modules: {e}")
+        print("\nTrying alternative import strategy...")
+        
+        # Try to import specific modules directly
+        try:
+            # Check for modules in the src directory
+            modules_dir = os.path.join(blackbird_root, 'src', 'modules')
+            if os.path.exists(modules_dir):
+                print(f"Found modules directory at: {modules_dir}")
+                
+                # Create mock modules for web interface
+                create_minimal_mocks()
+                return False
+            else:
+                print(f"Modules directory not found at: {modules_dir}")
+                create_minimal_mocks()
+                return False
+                
+        except Exception as e2:
+            print(f"✗ Alternative strategy failed: {e2}")
+            create_minimal_mocks()
+            return False
 
 def create_minimal_mocks():
     """Create minimal mock modules for essential functionality"""
@@ -334,9 +383,14 @@ def create_minimal_mocks():
                 filter_lower = config.filter.lower()
                 filtered = [s for s in filtered if filter_lower in str(s.get('name', '')).lower()]
             return filtered
+        
+        @staticmethod
+        def filterFoundAccounts(account):
+            return account.get("status") == "FOUND"
     
     mock_utils.filter = type(sys)('filter')
     mock_utils.filter.applyFilters = MockFilter.applyFilters
+    mock_utils.filter.filterFoundAccounts = MockFilter.filterFoundAccounts
     
     # Add log mock
     class MockLog:
@@ -346,6 +400,33 @@ def create_minimal_mocks():
     
     mock_utils.log = type(sys)('log')
     mock_utils.log.logError = MockLog.logError
+    
+    # Add input mock
+    class MockInput:
+        @staticmethod
+        def processInput(value, operation, config):
+            return value
+    
+    mock_utils.input = type(sys)('input')
+    mock_utils.input.processInput = MockInput.processInput
+    
+    # Add precheck mock
+    class MockPrecheck:
+        @staticmethod
+        def perform_pre_check(pre_check_config, headers, config):
+            return headers
+    
+    mock_utils.precheck = type(sys)('precheck')
+    mock_utils.precheck.perform_pre_check = MockPrecheck.perform_pre_check
+    
+    # Add dump mock
+    class MockDump:
+        @staticmethod
+        def dumpContent(path, site, response, config):
+            return True
+    
+    mock_utils.dump = type(sys)('dump')
+    mock_utils.dump.dumpContent = MockDump.dumpContent
     
     # Create mock whatsmyname module
     mock_whatsmyname = type(sys)('modules.whatsmyname')
@@ -357,6 +438,8 @@ def create_minimal_mocks():
                 path = config.USERNAME_LIST_PATH
             elif list_type == "metadata":
                 path = config.USERNAME_METADATA_LIST_PATH
+            elif list_type == "email":
+                path = config.EMAIL_LIST_PATH
             else:
                 return {"sites": []}
             
@@ -369,6 +452,27 @@ def create_minimal_mocks():
     mock_whatsmyname.list_operations = type(sys)('list_operations')
     mock_whatsmyname.list_operations.readList = MockListOperations.readList
     
+    # Create mock core module with email function
+    mock_core = type(sys)('modules.core')
+    mock_core.email = type(sys)('modules.core.email')
+    
+    class MockEmail:
+        @staticmethod
+        def verifyEmail(email, config):
+            print(f"Mock email verification for: {email}")
+            # Return mock results
+            return [
+                {
+                    "name": "Mock Email Service",
+                    "url": f"https://example.com/email/{email}",
+                    "category": "email",
+                    "status": "FOUND",
+                    "metadata": None
+                }
+            ]
+    
+    mock_core.email.verifyEmail = MockEmail.verifyEmail
+    
     # Add to sys.modules
     sys.modules['modules'] = mock_modules
     sys.modules['modules.utils'] = mock_utils
@@ -376,26 +480,37 @@ def create_minimal_mocks():
     sys.modules['modules.utils.parse'] = mock_utils.parse
     sys.modules['modules.utils.filter'] = mock_utils.filter
     sys.modules['modules.utils.log'] = mock_utils.log
+    sys.modules['modules.utils.input'] = mock_utils.input
+    sys.modules['modules.utils.precheck'] = mock_utils.precheck
+    sys.modules['modules.utils.dump'] = mock_utils.dump
     sys.modules['modules.whatsmyname'] = mock_whatsmyname
     sys.modules['modules.whatsmyname.list_operations'] = mock_whatsmyname.list_operations
+    sys.modules['modules.core'] = mock_core
+    sys.modules['modules.core.email'] = mock_core.email
     
     print("✓ Created minimal mock modules")
 
 def setup_blackbird_module_system():
     """Set up the module system to load Blackbird modules properly"""
     
+    print("\n=== Setting up Blackbird Module System ===")
+    
     blackbird_root = find_blackbird_root()
     
     if blackbird_root:
-        # Add to sys.path
-        src_path = os.path.join(blackbird_root, 'src')
-        if src_path not in sys.path:
-            sys.path.insert(0, src_path)
-            print(f"Added to sys.path: {src_path}")
+        # Add both blackbird_root and src directory to sys.path
+        if blackbird_root not in sys.path:
+            sys.path.insert(0, blackbird_root)
+            print(f"✓ Added blackbird_root to sys.path: {blackbird_root}")
         
-        return src_path
+        src_dir = os.path.join(blackbird_root, 'src')
+        if os.path.exists(src_dir) and src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
+            print(f"✓ Added src directory to sys.path: {src_dir}")
+        
+        return src_dir if os.path.exists(src_dir) else blackbird_root
     
-    print("Warning: Could not find Blackbird installation")
+    print("✗ Could not find Blackbird installation")
     return None
 
 def import_blackbird_module(module_path, module_name=None):
@@ -457,9 +572,21 @@ class WebConsole:
         self.output = []
         self.is_terminal = False
         self.is_interactive = False
+        self.is_jupyter = False  # Add this attribute
+        self.is_dumb_terminal = False
+        self.quiet = False
+        self.soft_wrap = False
         self._width = 80
         self._height = 24
         self.encoding = "utf-8"
+        self.color_system = "standard"
+        self.legacy_windows = False
+        self.no_color = False
+        self.tab_size = 8
+        self.file = None
+        self.record = False
+        self._theme_stack = None
+        self._log_render = None
     
     def print(self, message, **kwargs):
         msg = str(message)
@@ -480,6 +607,41 @@ class WebConsole:
     
     def bell(self):
         """Mock bell method"""
+        pass
+    
+    # Add other Rich Console methods that might be called
+    def begin_capture(self):
+        """Begin capturing output"""
+        pass
+    
+    def end_capture(self):
+        """End capturing output"""
+        return ""
+    
+    def get_style(self, name):
+        """Mock get_style method"""
+        return None
+    
+    def push_theme(self, theme):
+        """Mock push_theme method"""
+        pass
+    
+    def pop_theme(self):
+        """Mock pop_theme method"""
+        pass
+    
+    def status(self, status):
+        """Mock status method"""
+        return self
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+    
+    def update(self, renderable):
+        """Mock update method for Live display"""
         pass
 
 # Create mock implementations for missing functions
@@ -771,6 +933,8 @@ async def search_username_blackbird(username, config):
                 path = config.USERNAME_LIST_PATH
             elif list_type == "metadata":
                 path = config.USERNAME_METADATA_LIST_PATH
+            elif list_type == "email":
+                path = config.EMAIL_LIST_PATH
             else:
                 return {"sites": []}
             
@@ -922,19 +1086,296 @@ async def search_username_blackbird(username, config):
         return []
 
 async def search_email_blackbird(email, config):
-    """Use Blackbird's actual verifyEmail function with proper async handling"""
+    """Use Blackbird's actual email verification function with Live display workaround"""
     try:
         print(f"Starting email search for: {email}")
         
-        # For now, return empty results for email search
-        # You can implement similar logic to username search if needed
-        print("Email search not fully implemented yet")
-        return []
+        # Import required modules
+        from modules.core.email import verifyEmail
+        from modules.whatsmyname.list_operations import readList
+        from modules.utils.filter import applyFilters
+        import asyncio
+        import aiohttp
+        import time
+        
+        # Load email data
+        data = readList("email", config)
+        sitesToSearch = data["sites"]
+        config.email_sites = applyFilters(sitesToSearch, config)
+        
+        print(f"Loaded {len(config.email_sites)} email sites to check")
+        
+        # We need to run the actual email verification but without the Live display
+        # Let's create a simplified version of fetchResults that doesn't use Live
+        async def simple_email_fetch(email, config):
+            """Simplified version of fetchResults without Live display"""
+            import asyncio
+            import aiohttp
+            
+            async with aiohttp.ClientSession() as session:
+                tasks = []
+                semaphore = asyncio.Semaphore(config.max_concurrent_requests)
+                total_sites = len(config.email_sites)
+                completed = 0
+                results = []
+                
+                async def check_site_wrapper(site):
+                    nonlocal completed
+                    
+                    # Import the actual checkSite function
+                    from modules.core.email import checkSite
+                    from modules.utils.input import processInput
+                    
+                    # Process input if needed
+                    if site.get("input_operation") is not None:
+                        email_processed = processInput(email, site["input_operation"], config)
+                        if email_processed is None:
+                            email_processed = email
+                        elif not isinstance(email_processed, str):
+                            email_processed = str(email_processed)
+                    else:
+                        email_processed = email
+                    
+                    # Build URL
+                    url = site["uri_check"].replace("{account}", email_processed)
+                    data = site["data"].replace("{account}", email_processed) if site["data"] else None
+                    headers = site["headers"] if site["headers"] else None
+                    
+                    # Call the actual checkSite function
+                    result = await checkSite(
+                        site=site,
+                        method=site.get("method", "GET"),
+                        url=url,
+                        session=session,
+                        semaphore=semaphore,
+                        config=config,
+                        data=data,
+                        headers=headers,
+                    )
+                    
+                    completed += 1
+                    # Print progress without Live
+                    if completed % 5 == 0 or completed == total_sites:
+                        percent = int((completed / total_sites) * 100)
+                        print(f"Email check progress: {percent}% ({completed}/{total_sites})")
+                    
+                    return result
+                
+                # Create tasks for all sites
+                tasks = [check_site_wrapper(site) for site in config.email_sites]
+                
+                # Process all tasks
+                for task in asyncio.as_completed(tasks):
+                    result = await task
+                    results.append(result)
+                
+                return {"results": results, "email": email}
+        
+        # Run the simplified email fetch
+        print(f"Starting to check {len(config.email_sites)} email sites...")
+        start_time = time.time()
+        results = await simple_email_fetch(email, config)
+        end_time = time.time()
+        
+        print(f"Email check completed in {round(end_time - start_time, 1)} seconds")
+        
+        # Filter to only found accounts
+        from modules.utils.filter import filterFoundAccounts
+        found_accounts = [acc for acc in results.get('results', []) if filterFoundAccounts(acc)]
+        
+        print(f"Found {len(found_accounts)} email accounts")
+        
+        # Convert to the same format as username results
+        formatted_results = []
+        for account in found_accounts:
+            formatted_account = {
+                "name": account.get("name", "unknown"),
+                "url": account.get("url", "#"),
+                "category": account.get("category", account.get("cat", "unknown")),
+                "status": account.get("status", "UNKNOWN"),
+                "metadata": account.get("metadata")
+            }
+            formatted_results.append(formatted_account)
+        
+        return formatted_results
         
     except Exception as e:
         print(f"Error in Blackbird email search for {email}: {str(e)}")
         traceback.print_exc()
         return []
+
+async def check_site_simplified(site, email_processed, session, config):
+    """Simplified version of checkSite for email search"""
+    try:
+        from modules.utils.http_client import do_async_request
+        from modules.utils.parse import extractMetadata
+        
+        url = site["uri_check"].replace("{account}", email_processed)
+        
+        print(f"\n[DEBUG] Checking email site: {site.get('name', 'unknown')}")
+        print(f"[DEBUG] URL: {url}")
+        print(f"[DEBUG] e_string: {site.get('e_string', 'N/A')}")
+        print(f"[DEBUG] e_code: {site.get('e_code', 'N/A')}")
+        
+        # Make request
+        response = await do_async_request(
+            site.get("method", "GET"),
+            url,
+            session,
+            config,
+            data=site.get("data"),
+            headers=site.get("headers")
+        )
+        
+        if response is None:
+            print(f"[DEBUG] No response for {site.get('name', 'unknown')}")
+            return {
+                "name": site.get("name", "unknown"),
+                "url": url,
+                "category": site.get("cat", "unknown"),
+                "status": "ERROR",
+                "metadata": None
+            }
+        
+        # Check if email exists
+        e_string = site.get("e_string", "")
+        e_code = site.get("e_code", 200)
+        m_string = site.get("m_string", "")
+        m_code = site.get("m_code", 404)
+        
+        content = response.get("content", "")
+        status_code = response.get("status_code", 0)
+        
+        print(f"[DEBUG] Status code: {status_code}")
+        print(f"[DEBUG] Response length: {len(content)}")
+        
+        # Check if e_string is in content
+        account_found = (
+            e_string in content and 
+            (e_code == status_code or e_code == 0)
+        )
+        
+        print(f"[DEBUG] e_string in content: {e_string in content}")
+        print(f"[DEBUG] Status code matches e_code: {status_code == e_code}")
+        print(f"[DEBUG] Account found: {account_found}")
+        
+        if account_found:
+            # Check for non-match string/code
+            account_not_found = (
+                m_string in content or
+                (m_code == status_code and m_code != e_code)
+            )
+            
+            print(f"[DEBUG] m_string in content: {m_string in content}")
+            print(f"[DEBUG] Status code matches m_code: {status_code == m_code}")
+            print(f"[DEBUG] Account not found: {account_not_found}")
+            
+            if not account_not_found:
+                result = {
+                    "name": site.get("name", "unknown"),
+                    "url": response.get("url", url),
+                    "category": site.get("cat", "unknown"),
+                    "status": "FOUND",
+                    "metadata": None
+                }
+                
+                print(f"[DEBUG] ✓ FOUND account on {site.get('name', 'unknown')}")
+                return result
+        
+        print(f"[DEBUG] ✗ NOT FOUND on {site.get('name', 'unknown')}")
+        return {
+            "name": site.get("name", "unknown"),
+            "url": response.get("url", url),
+            "category": site.get("cat", "unknown"),
+            "status": "NOT-FOUND",
+            "metadata": None
+        }
+        
+    except Exception as e:
+        print(f"[DEBUG] Error checking email site {site.get('name', 'unknown')}: {e}")
+        return {
+            "name": site.get("name", "unknown"),
+            "url": url,
+            "category": site.get("cat", "unknown"),
+            "status": "ERROR",
+            "metadata": None
+        }
+
+async def simple_email_search_fallback(email, config):
+    """Simple fallback email search without Rich dependencies"""
+    async with aiohttp.ClientSession() as session:
+        results = []
+        
+        # Common email verification endpoints
+        email_check_endpoints = [
+            {
+                "name": "Have I Been Pwned",
+                "url": f"https://haveibeenpwned.com/unifiedsearch/{email}",
+                "category": "security",
+                "method": "GET"
+            },
+            {
+                "name": "EmailRep",
+                "url": f"https://emailrep.io/{email}",
+                "category": "security",
+                "method": "GET"
+            },
+            {
+                "name": "Hunter.io Email Verifier",
+                "url": f"https://api.hunter.io/v2/email-verifier?email={email}&api_key=demo",
+                "category": "professional",
+                "method": "GET"
+            },
+            {
+                "name": "DeHashed",
+                "url": f"https://dehashed.com/search?query={email}",
+                "category": "security",
+                "method": "GET"
+            }
+        ]
+        
+        for site in email_check_endpoints:
+            try:
+                print(f"  Checking: {site['name']}")
+                
+                async with session.request(
+                    method=site.get("method", "GET"),
+                    url=site["url"],
+                    headers={"User-Agent": config.userAgent},
+                    timeout=config.timeout
+                ) as response:
+                    status = response.status
+                    content = await response.text()
+                    
+                    # Simple check - if we get a 200, consider it found
+                    if status == 200:
+                        results.append({
+                            "name": site["name"],
+                            "url": site["url"],
+                            "category": site["category"],
+                            "status": "FOUND",
+                            "metadata": None
+                        })
+                        print(f"  ✓ Found on {site['name']}")
+                    else:
+                        results.append({
+                            "name": site["name"],
+                            "url": site["url"],
+                            "category": site["category"],
+                            "status": "NOT-FOUND",
+                            "metadata": None
+                        })
+            except Exception as e:
+                print(f"Error checking {site['name']}: {e}")
+                results.append({
+                    "name": site["name"],
+                    "url": site["url"],
+                    "category": site["category"],
+                    "status": "ERROR",
+                    "metadata": None
+                })
+        
+        return results
 
 def create_web_config(options):
     """Create a Blackbird config object for web interface"""
@@ -964,42 +1405,90 @@ def create_web_config(options):
     config.include_categories = options.get('include_categories', '')
     config.exclude_categories = options.get('exclude_categories', '')
     
+    # Add email-specific configuration
+    config.email_sites = []  # Will be populated when loading email sites
+    
     # Create console
     config.console = WebConsole()
     
     return config
 
-def save_reports(found_accounts, username, session_folder, config, search_type="username"):
+def save_reports(found_accounts, identifier, session_folder, config, search_type="username"):
     """Save reports using Blackbird's export modules"""
     try:
-        print(f"Saving reports for {username} in {session_folder}")
+        print(f"Saving reports for {identifier} in {session_folder}")
         
         # Ensure the session folder exists
         os.makedirs(session_folder, exist_ok=True)
         
         # Set current user/email for file naming
         if search_type == "username":
-            config.currentUser = username
+            config.currentUser = identifier
             config.currentEmail = None
-            identifier = username
+            prefix = f"{identifier}_{config.dateRaw}_blackbird"
         else:
-            config.currentEmail = username
+            config.currentEmail = identifier
             config.currentUser = None
-            identifier = username
+            prefix = f"{identifier}_{config.dateRaw}_blackbird"
         
         config.saveDirectory = session_folder
         
         reports = {}
         
-        # Save CSV
+        # Save JSON - Match CLI format
+        if config.json and found_accounts:
+            try:
+                json_file = f"{prefix}.json"
+                json_path = os.path.join(session_folder, json_file)
+                
+                # Prepare data for JSON - use simpler format like CLI
+                json_data = []
+                for account in found_accounts:
+                    account_data = {
+                        'name': account.get('name', 'Unknown'),
+                        'url': account.get('url', '#'),
+                        'category': account.get('category', 'unknown'),
+                        'status': account.get('status', 'UNKNOWN')
+                    }
+                    
+                    # Add metadata if available - format it like CLI
+                    metadata = account.get('metadata')
+                    if metadata:
+                        # Format metadata to match CLI output
+                        formatted_metadata = []
+                        for meta_item in metadata:
+                            formatted_meta = {
+                                'name': meta_item.get('name', ''),
+                                'value': meta_item.get('value', '')
+                            }
+                            if 'type' in meta_item:
+                                formatted_meta['type'] = meta_item['type']
+                            if 'path' in meta_item:
+                                formatted_meta['path'] = meta_item['path']
+                            formatted_metadata.append(formatted_meta)
+                        account_data['metadata'] = formatted_metadata
+                    
+                    json_data.append(account_data)
+                
+                # Save as pretty JSON like the CLI does
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(json_data, f, indent=4, ensure_ascii=False)
+                
+                reports['json_file'] = json_file
+                print(f"Saved JSON: {json_file}")
+            except Exception as e:
+                print(f"Error saving JSON: {e}")
+        
+        # Save CSV if enabled
         if config.csv and found_accounts:
             try:
-                csv_file = f"{identifier}_{config.dateRaw}_blackbird.csv"
+                csv_file = f"{prefix}.csv"
                 csv_path = os.path.join(session_folder, csv_file)
                 
                 with open(csv_path, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
-                    writer.writerow(['name', 'url', 'category', 'status'])
+                    # Write headers
+                    writer.writerow(['Site', 'URL', 'Category', 'Status'])
                     for account in found_accounts:
                         writer.writerow([
                             account.get('name', 'Unknown'),
@@ -1013,41 +1502,10 @@ def save_reports(found_accounts, username, session_folder, config, search_type="
             except Exception as e:
                 print(f"Error saving CSV: {e}")
         
-        # Save JSON
-        if config.json and found_accounts:
-            try:
-                json_file = f"{identifier}_{config.dateRaw}_blackbird.json"
-                json_path = os.path.join(session_folder, json_file)
-                
-                # Prepare data for JSON
-                json_data = []
-                for account in found_accounts:
-                    account_data = {
-                        'name': account.get('name', 'Unknown'),
-                        'url': account.get('url', '#'),
-                        'category': account.get('category', 'unknown'),
-                        'status': account.get('status', 'UNKNOWN')
-                    }
-                    
-                    # Add metadata if available
-                    metadata = account.get('metadata')
-                    if metadata:
-                        account_data['metadata'] = metadata
-                    
-                    json_data.append(account_data)
-                
-                with open(json_path, 'w', encoding='utf-8') as f:
-                    json.dump(json_data, f, indent=2, ensure_ascii=False)
-                
-                reports['json_file'] = json_file
-                print(f"Saved JSON: {json_file}")
-            except Exception as e:
-                print(f"Error saving JSON: {e}")
-        
-        # Save PDF
+        # Save PDF if enabled
         if config.pdf and found_accounts:
             try:
-                pdf_file = f"{identifier}_{config.dateRaw}_blackbird.pdf"
+                pdf_file = f"{prefix}.pdf"
                 pdf_path = os.path.join(session_folder, pdf_file)
                 
                 # Create a simple PDF
@@ -1060,7 +1518,8 @@ def save_reports(found_accounts, username, session_folder, config, search_type="
                 
                 # Title
                 c.setFont("Helvetica-Bold", 16)
-                c.drawString(1*inch, height - 1*inch, f"Blackbird Report - {identifier}")
+                title = f"Blackbird Report - {identifier}"
+                c.drawString(1*inch, height - 1*inch, title)
                 
                 # Subtitle
                 c.setFont("Helvetica", 10)
@@ -1075,30 +1534,72 @@ def save_reports(found_accounts, username, session_folder, config, search_type="
                 y_position -= 0.3*inch
                 c.setFont("Helvetica", 10)
                 
+                # Table headers
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(1*inch, y_position, "Site Name")
+                c.drawString(3*inch, y_position, "URL")
+                c.drawString(6*inch, y_position, "Category")
+                c.drawString(7.2*inch, y_position, "Status")
+                
+                y_position -= 0.2*inch
+                c.setFont("Helvetica", 10)
+                
+                # Draw a line
+                c.line(1*inch, y_position, 7.5*inch, y_position)
+                y_position -= 0.3*inch
+                
                 for account in found_accounts[:30]:  # Limit to first 30
                     if y_position < 1*inch:  # New page if needed
                         c.showPage()
                         y_position = height - 1*inch
+                        # Redraw headers on new page
+                        c.setFont("Helvetica-Bold", 10)
+                        c.drawString(1*inch, y_position, "Site Name")
+                        c.drawString(3*inch, y_position, "URL")
+                        c.drawString(6*inch, y_position, "Category")
+                        c.drawString(7.2*inch, y_position, "Status")
+                        y_position -= 0.2*inch
+                        c.line(1*inch, y_position, 7.5*inch, y_position)
+                        y_position -= 0.3*inch
+                        c.setFont("Helvetica", 10)
                     
                     # Site name
-                    c.setFont("Helvetica-Bold", 10)
                     site_name = account.get('name', 'Unknown')
-                    if len(site_name) > 30:
-                        site_name = site_name[:27] + "..."
+                    if len(site_name) > 25:
+                        site_name = site_name[:22] + "..."
                     c.drawString(1*inch, y_position, site_name)
                     
                     # URL
-                    c.setFont("Helvetica", 8)
                     url = account.get('url', '#')
-                    if len(url) > 60:
-                        url = url[:57] + "..."
+                    if len(url) > 40:
+                        url = url[:37] + "..."
                     c.drawString(3*inch, y_position, url)
                     
                     # Category
                     category = account.get('category', 'unknown')
-                    c.drawString(6.5*inch, y_position, category)
+                    c.drawString(6*inch, y_position, category)
+                    
+                    # Status with color indicator
+                    status = account.get('status', 'UNKNOWN')
+                    status_color = {
+                        'FOUND': 'green',
+                        'NOT-FOUND': 'gray',
+                        'ERROR': 'red'
+                    }.get(status, 'black')
+                    
+                    # Draw status with colored box
+                    c.setFillColor(status_color)
+                    c.rect(7.2*inch, y_position - 0.05*inch, 0.3*inch, 0.15*inch, fill=1, stroke=0)
+                    c.setFillColorRGB(1, 1, 1)  # White text
+                    c.drawString(7.25*inch, y_position, status[:1])  # Just first letter
+                    c.setFillColorRGB(0, 0, 0)  # Reset to black
                     
                     y_position -= 0.2*inch
+                
+                # Footer
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                c.drawString(1*inch, 0.5*inch, f"Generated by Blackbird on {config.datePretty}")
                 
                 c.save()
                 reports['pdf_file'] = pdf_file
@@ -1167,7 +1668,12 @@ async def process_single_search(item, search_type, config):
 def create_session_folder(username, search_type):
     """Create session folder in username_mm_dd_yyyy_blackbird format"""
     date_str = datetime.now().strftime("%m_%d_%Y")
-    folder_name = f"{username}_{date_str}_blackbird"
+    if search_type == "email":
+        folder_name = f"{username}_{date_str}_blackbird"
+    else:
+        folder_name = f"{username}_{date_str}_blackbird"
+    
+    # Create the folder in the results directory
     session_folder = os.path.join(app.config["REPORTS_FOLDER"], folder_name)
     return folder_name, session_folder
 
@@ -1183,7 +1689,7 @@ def process_search_task(search_items, search_type, options, timestamp):
         # Process all searches
         tasks = []
         for item in search_items:
-            # Create session folder for each username
+            # Create session folder for each username/email
             folder_name, session_folder = create_session_folder(item, search_type)
             
             # Create config
@@ -1207,7 +1713,7 @@ def process_search_task(search_items, search_type, options, timestamp):
             found_accounts = result['found_accounts']
             claimed_profiles = result['claimed_profiles']
             
-            # Get the session folder for this username
+            # Get the session folder for this username/email
             folder_name, session_folder = create_session_folder(item, search_type)
             
             # Create folder
@@ -1354,6 +1860,40 @@ def index():
             tag_options = ["social", "tech", "coding", "professional"]
             categories = ["social", "tech", "business", "coding", "gaming", "art", "misc"]
         
+        # Try to load email site names and categories
+        email_site_names = []
+        email_categories = []
+        
+        try:
+            config = BlackbirdConfig()
+            if os.path.exists(config.EMAIL_LIST_PATH):
+                with open(config.EMAIL_LIST_PATH, 'r', encoding='utf-8') as f:
+                    email_data = json.load(f)
+                
+                email_site_names = sorted(set([
+                    site.get('name', '') for site in email_data.get('sites', []) 
+                    if site.get('name')
+                ]))
+                
+                # Extract email categories
+                email_categories = sorted(set([
+                    site.get('cat', '').strip() for site in email_data.get('sites', [])
+                    if site.get('cat', '').strip()
+                ]))
+                
+                print(f"Loaded {len(email_site_names)} email sites and {len(email_categories)} email categories")
+            else:
+                print(f"Email data file not found: {config.EMAIL_LIST_PATH}")
+                # Create sample email data for testing
+                email_site_names = ["Have I Been Pwned", "DeHashed", "Hunter.io", "EmailRep", "BreachDirectory"]
+                email_categories = ["security", "professional", "verification"]
+        except Exception as e:
+            print(f"Error loading email data: {str(e)}")
+            traceback.print_exc()
+            # Fallback to sample email data
+            email_site_names = ["Have I Been Pwned", "DeHashed", "Hunter.io", "EmailRep", "BreachDirectory"]
+            email_categories = ["security", "professional", "verification"]
+        
         # Map categories to icons for the UI
         category_icons = {
             "archived": "📁",
@@ -1372,16 +1912,19 @@ def index():
             "news": "📰",
             "political": "🏛️",
             "search": "🔍",
+            "security": "🔒",
+            "professional": "💼",
+            "verification": "✅",
             "shopping": "🛒",
             "social": "💬",
             "tech": "💻",
             "video": "🎥"
-            # "xx NSFW xx": "🔞"
         }
         
-        # Create category data for template
+        # Create category data for template - combine username and email categories
+        all_categories = sorted(set(categories + email_categories))
         category_data = []
-        for category in categories:
+        for category in all_categories:
             # Skip NSFW category entirely
             if category == "xx NSFW xx":
                 continue
@@ -1389,21 +1932,47 @@ def index():
             icon = category_icons.get(category, "📁")
             display_name = category
             
+            # Add source indicator
+            source = []
+            if category in categories:
+                source.append("username")
+            if category in email_categories:
+                source.append("email")
+            
             category_data.append({
                 'id': category,
                 'name': display_name,
-                'icon': icon
+                'icon': icon,
+                'source': '|'.join(source)  # e.g., "username|email"
+            })
+        
+        # Prepare email-specific data for the template
+        email_category_data = []
+        for category in email_categories:
+            icon = category_icons.get(category, "📧")
+            email_category_data.append({
+                'id': f"email_{category}",
+                'name': f"{category} (Email)",
+                'icon': icon,
+                'source': 'email'
             })
         
         return render_template('index.html', 
                              site_options=site_names,
                              tag_options=tag_options,
-                             categories=category_data)
+                             categories=category_data,
+                             email_site_options=email_site_names,
+                             email_categories=email_category_data)
         
     except Exception as e:
         print(f"Error loading index: {str(e)}")
         traceback.print_exc()
-        return render_template('index.html', site_options=[], tag_options=[], categories=[])
+        return render_template('index.html', 
+                             site_options=[], 
+                             tag_options=[], 
+                             categories=[],
+                             email_site_options=[],
+                             email_categories=[])
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -1751,27 +2320,35 @@ def health():
 
 if __name__ == '__main__':
     # Load Blackbird modules
-    print("Loading Blackbird modules...")
-    load_blackbird_modules()
-    
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('blackbird-web.log'),
-            logging.StreamHandler()
-        ]
-    )
-    
-    # Print startup info
     print("=" * 60)
     print("Starting Blackbird Web Interface")
     print("=" * 60)
     
+    # Find and setup blackbird
+    print("\n[1] Setting up Blackbird environment...")
+    blackbird_root = find_blackbird_root()
+    
+    if blackbird_root:
+        print(f"✓ Blackbird root: {blackbird_root}")
+        
+        # Add to sys.path
+        src_dir = os.path.join(blackbird_root, 'src')
+        if os.path.exists(src_dir):
+            sys.path.insert(0, src_dir)
+            print(f"✓ Added to sys.path: {src_dir}")
+        
+        # Also add the parent directory
+        sys.path.insert(0, blackbird_root)
+        print(f"✓ Added to sys.path: {blackbird_root}")
+    else:
+        print("✗ Could not find Blackbird root")
+    
+    print("\n[2] Loading Blackbird modules...")
+    load_blackbird_modules()
+    
     # Test data files
+    print("\n[3] Checking data files...")
     config = BlackbirdConfig()
-    print(f"\nData files:")
     print(f"  Username list: {config.USERNAME_LIST_PATH} - {'✓' if os.path.exists(config.USERNAME_LIST_PATH) else '✗'}")
     print(f"  Email list: {config.EMAIL_LIST_PATH} - {'✓' if os.path.exists(config.EMAIL_LIST_PATH) else '✗'}")
     print(f"  Metadata: {config.USERNAME_METADATA_LIST_PATH} - {'✓' if os.path.exists(config.USERNAME_METADATA_LIST_PATH) else '✗'}")
@@ -1780,29 +2357,12 @@ if __name__ == '__main__':
     if BLACKBIRD_ASSETS_DIR:
         print(f"  Assets directory: {BLACKBIRD_ASSETS_DIR} - {'✓' if os.path.exists(BLACKBIRD_ASSETS_DIR) else '✗'}")
     
-    # Test module imports
-    print(f"\nModule status:")
-    
-    test_imports = [
-        ('modules.utils.http_client', 'HTTP Client'),
-        ('modules.utils.parse', 'Parse'),
-        ('modules.utils.filter', 'Filter'),
-        ('modules.whatsmyname.list_operations', 'List Operations'),
-    ]
-    
-    for module_name, display_name in test_imports:
-        try:
-            __import__(module_name)
-            print(f"  {display_name}: ✓")
-        except ImportError:
-            print(f"  {display_name}: ✗ (using mock)")
-    
     # Run the app
     debug_mode = os.getenv('FLASK_DEBUG', 'True').lower() in ['true', '1', 't']
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    print(f"\nStarting server on {host}:{port} (debug={debug_mode})")
+    print(f"\n[4] Starting server on {host}:{port} (debug={debug_mode})")
     print("=" * 60)
     
     app.run(debug=debug_mode, host=host, port=port)

@@ -662,87 +662,112 @@
         });
     }
     
-    // Setup category filter
-    function setupCategoryFilter() {
-        const categoryItems = document.querySelectorAll('.category-item');
-        const includeInput = document.getElementById('includeCategories');
-        const excludeInput = document.getElementById('excludeCategories');
-        const categoryFilterInput = document.getElementById('categoryFilter');
+// Setup category filter - FIXED VERSION
+function setupCategoryFilter() {
+    const categoryItems = document.querySelectorAll('.category-item');
+    const includeInput = document.getElementById('includeCategories');
+    const excludeInput = document.getElementById('excludeCategories');
+    const categoryFilterInput = document.getElementById('categoryFilter');
+    
+    // States: 0 = unselected, 1 = included, 2 = excluded
+    const categoryStates = {};
+    
+    // Initialize all categories as unselected
+    categoryItems.forEach(item => {
+        const category = item.dataset.category;
+        categoryStates[category] = 0;
+        item.setAttribute('data-state', '0'); // Add state attribute for debugging
+    });
+    
+    function updateCategoryFilter() {
+        const included = [];
+        const excluded = [];
         
-        // States: 0 = unselected, 1 = included, 2 = excluded
-        const categoryStates = {};
+        console.log('Updating category filter...');
         
-        // Initialize all categories as unselected
+        // Update UI and collect categories
         categoryItems.forEach(item => {
             const category = item.dataset.category;
-            categoryStates[category] = 0;
+            const state = categoryStates[category];
+            
+            // Update UI classes
+            item.classList.remove('selected', 'excluded');
+            if (state === 1) {
+                item.classList.add('selected');
+                included.push(category);
+                console.log(`✓ Included: ${category}`);
+            } else if (state === 2) {
+                item.classList.add('excluded', 'selected');
+                excluded.push(category);
+                console.log(`✗ Excluded: ${category}`);
+            }
+            
+            // Update data-state attribute for debugging
+            item.setAttribute('data-state', state.toString());
         });
         
-        function updateCategoryFilter() {
-            const included = [];
-            const excluded = [];
-            
-            // Update UI and collect categories
-            categoryItems.forEach(item => {
-                const category = item.dataset.category;
-                const state = categoryStates[category];
-                
-                // Update UI classes
-                item.classList.remove('selected', 'excluded');
-                if (state === 1) {
-                    item.classList.add('selected');
-                    included.push(category);
-                } else if (state === 2) {
-                    item.classList.add('excluded', 'selected');
-                    excluded.push(category);
-                }
-            });
-            
-            // Update hidden inputs
-            includeInput.value = included.join(',');
-            excludeInput.value = excluded.join(',');
-            
-            // Build Blackbird filter syntax
-            let filterParts = [];
-            
-            // For INCLUDED categories: use cat=category (exact match)
-            // If multiple categories are included, we need OR logic: cat=social|tech|hobby
-            if (included.length > 0) {
-                // Blackbird uses | for OR in exact matches
-                filterParts.push(`cat=${included.join('|')}`);
-            }
-            
-            // For EXCLUDED categories: use cat!=category
-            // If multiple categories are excluded: cat!=gaming|shopping|news
-            if (excluded.length > 0) {
-                filterParts.push(`cat!=${excluded.join('|')}`);
-            }
-            
-            // Combine filters with AND (space separated in Blackbird syntax)
-            categoryFilterInput.value = filterParts.join(' ');
-            
-            // Update status display
-            document.getElementById('includedCount').textContent = `${included.length} categories included`;
-            document.getElementById('excludedCount').textContent = `${excluded.length} categories excluded`;
-            
-            console.log('Category filter built:', categoryFilterInput.value);
+        // Update hidden inputs
+        includeInput.value = included.join(',');
+        excludeInput.value = excluded.join(',');
+        
+        console.log('Included categories:', included);
+        console.log('Excluded categories:', excluded);
+        
+        // Build Blackbird filter syntax
+        let filterParts = [];
+        
+        // For INCLUDED categories: use cat=category (exact match)
+        if (included.length > 0) {
+            // Use OR operator for multiple included categories
+            filterParts.push(`cat=${included.join('|')}`);
         }
         
-        // Add click handlers to category items
-        categoryItems.forEach(item => {
-            item.addEventListener('click', function() {
-                const category = this.dataset.category;
-                
-                // Cycle through states: 0 → 1 → 2 → 0
-                categoryStates[category] = (categoryStates[category] + 1) % 3;
-                
-                updateCategoryFilter();
-            });
-        });
+        // For EXCLUDED categories: use cat!=category
+        if (excluded.length > 0) {
+            filterParts.push(`cat!=${excluded.join('|')}`);
+        }
         
-        // Initial update
-        updateCategoryFilter();
+        // Combine filters with AND (space separated in Blackbird syntax)
+        const finalFilter = filterParts.join(' ');
+        categoryFilterInput.value = finalFilter;
+        
+        console.log('Generated filter:', finalFilter);
+        
+        // Update status display
+        const includedCount = document.getElementById('includedCount');
+        const excludedCount = document.getElementById('excludedCount');
+        
+        if (includedCount) {
+            includedCount.textContent = `${included.length} categories included`;
+        }
+        if (excludedCount) {
+            excludedCount.textContent = `${excluded.length} categories excluded`;
+        }
+        
+        return finalFilter;
     }
+    
+    // Add click handlers to category items
+    categoryItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const category = this.dataset.category;
+            
+            // Cycle through states: 0 → 1 → 2 → 0
+            const newState = (categoryStates[category] + 1) % 3;
+            categoryStates[category] = newState;
+            
+            console.log(`Category ${category} state changed to: ${newState}`);
+            
+            const finalFilter = updateCategoryFilter();
+            
+            // Debug: Log the current filter state
+            console.log('Current filter after click:', finalFilter);
+        });
+    });
+    
+    // Initial update
+    updateCategoryFilter();
+}
     
     // Existing toggleSection function
     function toggleSection(sectionId) {
@@ -757,51 +782,75 @@
     
 // Form submission
 const form = document.getElementById('usernameForm');
-// Update the form submission handler
+// Form submission handler - FIXED VERSION
 form.addEventListener('submit', function(e) {
     // Validate at least one search field is filled
     const searchType = document.querySelector('.search-type-btn.active').dataset.type;
+    let isValid = false;
+    
     if (searchType === 'username') {
-        if (!document.getElementById('usernames').value.trim()) {
-            e.preventDefault();
+        const usernames = document.getElementById('usernames').value.trim();
+        if (usernames) {
+            isValid = true;
+            console.log('Username search:', usernames);
+        } else {
             alert('Please enter at least one username');
-            return;
         }
     } else {
-        if (!document.getElementById('emails').value.trim()) {
-            e.preventDefault();
+        const emails = document.getElementById('emails').value.trim();
+        if (emails) {
+            isValid = true;
+            console.log('Email search:', emails);
+        } else {
             alert('Please enter at least one email address');
-            return;
         }
     }
     
-    // Combine category filter with custom filter
-    const categoryFilter = document.getElementById('categoryFilter').value;
-    const customFilter = document.getElementById('filter').value;
+    if (!isValid) {
+        e.preventDefault();
+        return;
+    }
+    
+    // Force update of category filter before submission
+    console.log('=== Form Submission Debug ===');
+    
+    // Get category filter values
     const includeCategories = document.getElementById('includeCategories').value;
     const excludeCategories = document.getElementById('excludeCategories').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const customFilter = document.getElementById('filter').value;
     
-    // Store category data in hidden fields
-    document.getElementById('includeCategories').value = includeCategories;
-    document.getElementById('excludeCategories').value = excludeCategories;
+    console.log('Include categories:', includeCategories);
+    console.log('Exclude categories:', excludeCategories);
+    console.log('Generated category filter:', categoryFilter);
+    console.log('Custom filter:', customFilter);
     
-    // Build the final filter
+    // Combine category filter with custom filter
     let finalFilter = '';
     
     if (categoryFilter) {
         finalFilter = categoryFilter;
     }
     
-    if (customFilter) {
+    if (customFilter && customFilter.trim()) {
         if (finalFilter) {
-            finalFilter += ` ${customFilter}`;
+            finalFilter += ` ${customFilter.trim()}`;
         } else {
-            finalFilter = customFilter;
+            finalFilter = customFilter.trim();
         }
     }
     
-    // Update the filter field
-    document.getElementById('filter').value = finalFilter.trim();
+    console.log('Final combined filter:', finalFilter);
+    
+    // Update all filter-related fields
+    document.getElementById('includeCategories').value = includeCategories;
+    document.getElementById('excludeCategories').value = excludeCategories;
+    document.getElementById('categoryFilter').value = categoryFilter;
+    document.getElementById('filter').value = finalFilter;
+    
+    console.log('Form fields updated. Submitting...');
+    
+    // Allow form submission to proceed
 });
 </script>
 {% endblock %}
