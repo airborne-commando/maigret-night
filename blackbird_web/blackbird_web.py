@@ -6,6 +6,7 @@ from flask import (
     flash,
     redirect,
     url_for,
+    get_flashed_messages,
 )
 import logging
 import os
@@ -25,6 +26,7 @@ import csv
 import requests
 import chardet
 import time
+from collections import defaultdict, Counter
 
 # Apply nest_asyncio to allow nested event loops
 nest_asyncio.apply()
@@ -78,10 +80,10 @@ class BlackbirdConfig:
         self.ai_analysis = None
         
         # Find data files
-        self.USERNAME_LIST_PATH = self._find_data_file('wmn-data.json')
-        self.EMAIL_LIST_PATH = self._find_data_file('email-data.json')
-        self.USERNAME_METADATA_LIST_PATH = self._find_data_file('wmn-metadata.json')
-        self.USERNAME_LIST_URL = "https://raw.githubusercontent.com/WebBreacher/WhatsMyName/main/wmn-data.json"
+        self.USERNAME_list_PATH = self._find_data_file('wmn-data.json')
+        self.EMAIL_list_PATH = self._find_data_file('email-data.json')
+        self.USERNAME_METADATA_list_PATH = self._find_data_file('wmn-metadata.json')
+        self.USERNAME_list_URL = "https://raw.githubusercontent.com/WebBreacher/WhatsMyName/main/wmn-data.json"
         
         # Initialize lists
         self.username_sites = []
@@ -90,9 +92,9 @@ class BlackbirdConfig:
         self.include_categories = []
         self.exclude_categories = []
         
-        print(f"Username list path: {self.USERNAME_LIST_PATH}")
-        print(f"Email list path: {self.EMAIL_LIST_PATH}")
-        print(f"Metadata path: {self.USERNAME_METADATA_LIST_PATH}")
+        print(f"Username list path: {self.USERNAME_list_PATH}")
+        print(f"Email list path: {self.EMAIL_list_PATH}")
+        print(f"Metadata path: {self.USERNAME_METADATA_list_PATH}")
     
     def _find_data_file(self, filename):
         """Find Blackbird data files in common locations"""
@@ -146,7 +148,7 @@ def find_blackbird_root():
     """Find the Blackbird installation root directory - Universal version"""
     print("\n[Searching for Blackbird installation...]")
     
-    # List of signatures that identify a Blackbird installation
+    # list of signatures that identify a Blackbird installation
     SIGNATURES = [
         ('blackbird.py', 'main script'),
         (os.path.join('src', 'modules'), 'modules directory'),
@@ -283,7 +285,7 @@ def load_blackbird_modules():
             ('modules.utils.http_client', 'HTTP Client'),
             ('modules.utils.parse', 'Parse'),
             ('modules.utils.filter', 'Filter'),
-            ('modules.whatsmyname.list_operations', 'List Operations'),
+            ('modules.whatsmyname.list_operations', 'list Operations'),
             ('modules.core.email', 'Email Module'),
         ]
         
@@ -432,15 +434,15 @@ def create_minimal_mocks():
     # Create mock whatsmyname module
     mock_whatsmyname = type(sys)('modules.whatsmyname')
     
-    class MockListOperations:
+    class MocklistOperations:
         @staticmethod
-        def readList(list_type, config):
+        def readlist(list_type, config):
             if list_type == "username":
-                path = config.USERNAME_LIST_PATH
+                path = config.USERNAME_list_PATH
             elif list_type == "metadata":
-                path = config.USERNAME_METADATA_LIST_PATH
+                path = config.USERNAME_METADATA_list_PATH
             elif list_type == "email":
-                path = config.EMAIL_LIST_PATH
+                path = config.EMAIL_list_PATH
             else:
                 return {"sites": []}
             
@@ -451,7 +453,7 @@ def create_minimal_mocks():
                 return {"sites": []}
     
     mock_whatsmyname.list_operations = type(sys)('list_operations')
-    mock_whatsmyname.list_operations.readList = MockListOperations.readList
+    mock_whatsmyname.list_operations.readlist = MocklistOperations.readlist
     
     # Create mock core module with email function
     mock_core = type(sys)('modules.core')
@@ -704,6 +706,470 @@ def simple_remove_duplicates(items):
             seen.add(identifier)
             unique.append(item)
     return unique
+
+# Frequency Analyzer Class
+class FrequencyAnalyzer:
+    """Analyze frequency of usernames across historical search results"""
+    
+    def __init__(self, reports_folder: str):
+        """
+        Initialize the analyzer with the reports folder
+        
+        Args:
+            reports_folder: Path to the folder containing Blackbird results
+        """
+        self.reports_folder = Path(reports_folder)
+        self.username_cache = {}  # Cache for username lookups
+        self.frequency_cache = {}  # Cache for frequency data
+        self.cache_file = self.reports_folder / ".frequency_cache.json"
+        self.last_scan_time = None
+        
+        # Load cache if exists
+        self._load_cache()
+    
+    def _load_cache(self):
+        """Load frequency cache from file"""
+        try:
+            if self.cache_file.exists():
+                with open(self.cache_file, 'r') as f:
+                    cache_data = json.load(f)
+                    self.frequency_cache = cache_data.get('frequency_data', {})
+                    self.last_scan_time = cache_data.get('last_scan_time')
+                    print(f"Loaded frequency cache with {len(self.frequency_cache)} entries")
+        except Exception as e:
+            print(f"Error loading cache: {e}")
+            self.frequency_cache = {}
+    
+    def _save_cache(self):
+        """Save frequency cache to file"""
+        try:
+            cache_data = {
+                'frequency_data': self.frequency_cache,
+                'last_scan_time': datetime.now().isoformat(),
+                'version': '1.0'
+            }
+            with open(self.cache_file, 'w') as f:
+                json.dump(cache_data, f, indent=2)
+            print(f"Saved frequency cache with {len(self.frequency_cache)} entries")
+        except Exception as e:
+            print(f"Error saving cache: {e}")
+    
+    def scan_reports(self, force_rescan: bool = False) -> dict:
+        """
+        Scan all reports and build frequency statistics
+        
+        Args:
+            force_rescan: If True, rescan all files even if cache exists
+            
+        Returns:
+            dictionary with frequency statistics
+        """
+        # Check if we need to rescan
+        if not force_rescan and self.frequency_cache and self._is_cache_fresh():
+            print("Using cached frequency data")
+            return self.frequency_cache
+        
+        print("Scanning reports for frequency analysis...")
+        
+        # Initialize statistics
+        frequency_data = {
+            'total_reports': 0,
+            'total_accounts': 0,
+            'unique_usernames': set(),
+            'unique_emails': set(),
+            'unique_sites': set(),
+            'site_frequency': defaultdict(int),  # site -> count
+            'username_frequency': defaultdict(int),  # username -> total sites found
+            'username_site_map': defaultdict(set),  # username -> set of sites
+            'site_username_map': defaultdict(set),  # site -> set of usernames
+            'category_frequency': defaultdict(int),  # category -> count
+            'recent_searches': [],  # Most recent searches
+            'search_timeline': defaultdict(list),  # date -> list of searches
+            'last_scan': datetime.now().isoformat()
+        }
+        
+        # Find all JSON and CSV files
+        json_files = list(self.reports_folder.rglob("*.json"))
+        csv_files = list(self.reports_folder.rglob("*.csv"))
+        
+        print(f"Found {len(json_files)} JSON files and {len(csv_files)} CSV files")
+        
+        # Process JSON files
+        for json_file in json_files:
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Extract username/email from filename
+                filename = json_file.stem
+                username_match = re.match(r'^([^_]+)_', filename)
+                if username_match:
+                    username = username_match.group(1)
+                    
+                    # Check if this is email or username
+                    is_email = '@' in username
+                    
+                    if is_email:
+                        frequency_data['unique_emails'].add(username)
+                        identifier = f"email:{username}"
+                    else:
+                        frequency_data['unique_usernames'].add(username)
+                        identifier = f"username:{username}"
+                    
+                    frequency_data['total_reports'] += 1
+                    
+                    # Process found accounts
+                    if isinstance(data, list):
+                        for account in data:
+                            site_name = account.get('name', 'Unknown')
+                            category = account.get('category', 'unknown')
+                            status = account.get('status', 'UNKNOWN')
+                            
+                            if status == 'FOUND':
+                                frequency_data['total_accounts'] += 1
+                                frequency_data['unique_sites'].add(site_name)
+                                frequency_data['site_frequency'][site_name] += 1
+                                frequency_data['username_frequency'][identifier] += 1
+                                frequency_data['username_site_map'][identifier].add(site_name)
+                                frequency_data['site_username_map'][site_name].add(identifier)
+                                frequency_data['category_frequency'][category] += 1
+                    
+                    # Add to timeline
+                    try:
+                        # Extract date from folder structure
+                        date_match = re.search(r'(\d{2})_(\d{2})_(\d{4})', str(json_file.parent))
+                        if date_match:
+                            date_str = f"{date_match.group(3)}-{date_match.group(1)}-{date_match.group(2)}"
+                            frequency_data['search_timeline'][date_str].append({
+                                'username': username,
+                                'file': str(json_file.relative_to(self.reports_folder)),
+                                'timestamp': datetime.fromtimestamp(json_file.stat().st_mtime).isoformat(),
+                                'accounts_found': len([a for a in data if isinstance(data, list) and a.get('status') == 'FOUND'])
+                            })
+                    except:
+                        pass
+                        
+            except Exception as e:
+                print(f"Error processing {json_file}: {e}")
+                continue
+        
+        # Process CSV files
+        for csv_file in csv_files:
+            try:
+                # Skip if we already processed the JSON version
+                json_version = csv_file.with_suffix('.json')
+                if json_version.exists():
+                    continue
+                
+                # Extract username/email from filename
+                filename = csv_file.stem
+                username_match = re.match(r'^([^_]+)_', filename)
+                if username_match:
+                    username = username_match.group(1)
+                    is_email = '@' in username
+                    
+                    if is_email:
+                        identifier = f"email:{username}"
+                    else:
+                        identifier = f"username:{username}"
+                    
+                    frequency_data['total_reports'] += 1
+                    
+                    # Read CSV
+                    with open(csv_file, 'r', encoding='utf-8') as f:
+                        reader = csv.dictReader(f)
+                        for row in reader:
+                            site_name = row.get('Site', 'Unknown')
+                            category = row.get('Category', 'unknown')
+                            status = row.get('Status', 'UNKNOWN')
+                            
+                            if status == 'FOUND':
+                                frequency_data['total_accounts'] += 1
+                                frequency_data['unique_sites'].add(site_name)
+                                frequency_data['site_frequency'][site_name] += 1
+                                frequency_data['username_frequency'][identifier] += 1
+                                frequency_data['username_site_map'][identifier].add(site_name)
+                                frequency_data['site_username_map'][site_name].add(identifier)
+                                frequency_data['category_frequency'][category] += 1
+                                
+            except Exception as e:
+                print(f"Error processing {csv_file}: {e}")
+                continue
+        
+        # Convert sets to lists for JSON serialization
+        frequency_data['unique_usernames'] = list(frequency_data['unique_usernames'])
+        frequency_data['unique_emails'] = list(frequency_data['unique_emails'])
+        frequency_data['unique_sites'] = list(frequency_data['unique_sites'])
+        
+        # Convert defaultdict to regular dict
+        frequency_data['site_frequency'] = dict(frequency_data['site_frequency'])
+        frequency_data['username_frequency'] = dict(frequency_data['username_frequency'])
+        frequency_data['username_site_map'] = {k: list(v) for k, v in frequency_data['username_site_map'].items()}
+        frequency_data['site_username_map'] = {k: list(v) for k, v in frequency_data['site_username_map'].items()}
+        frequency_data['category_frequency'] = dict(frequency_data['category_frequency'])
+        frequency_data['search_timeline'] = dict(frequency_data['search_timeline'])
+        
+        # Get recent searches (last 10)
+        all_searches = []
+        for date_str, searches in frequency_data['search_timeline'].items():
+            for search in searches:
+                search['date'] = date_str
+                all_searches.append(search)
+        
+        # Sort by timestamp (most recent first)
+        all_searches.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        frequency_data['recent_searches'] = all_searches[:10]
+        
+        # Update cache
+        self.frequency_cache = frequency_data
+        self._save_cache()
+        
+        print(f"Frequency analysis complete:")
+        print(f"  - Total reports: {frequency_data['total_reports']}")
+        print(f"  - Unique usernames: {len(frequency_data['unique_usernames'])}")
+        print(f"  - Unique emails: {len(frequency_data['unique_emails'])}")
+        print(f"  - Unique sites: {len(frequency_data['unique_sites'])}")
+        print(f"  - Total accounts found: {frequency_data['total_accounts']}")
+        
+        return frequency_data
+    
+    def _is_cache_fresh(self, max_age_hours: int = 1) -> bool:
+        """Check if cache is fresh enough"""
+        if not self.last_scan_time:
+            return False
+        
+        try:
+            last_scan = datetime.fromisoformat(self.last_scan_time)
+            age = datetime.now() - last_scan
+            return age.total_seconds() < (max_age_hours * 3600)
+        except:
+            return False
+    
+    def get_username_frequency(self, username: str) -> dict:
+        """
+        Get frequency statistics for a specific username
+        
+        Args:
+            username: Username to analyze
+            
+        Returns:
+            dictionary with frequency statistics for the username
+        """
+        # Ensure we have fresh data
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        # Check both username and email formats
+        identifiers_to_check = [f"username:{username}"]
+        if '@' in username:
+            identifiers_to_check.append(f"email:{username}")
+        
+        result = {
+            'username': username,
+            'total_searches': 0,
+            'sites_found': [],
+            'site_count': 0,
+            'categories': defaultdict(int),
+            'first_seen': None,
+            'last_seen': None,
+            'search_history': []
+        }
+        
+        for identifier in identifiers_to_check:
+            if identifier in self.frequency_cache.get('username_site_map', {}):
+                sites = self.frequency_cache['username_site_map'][identifier]
+                result['sites_found'].extend(sites)
+                result['site_count'] = len(sites)
+                result['total_searches'] = self.frequency_cache['username_frequency'].get(identifier, 0)
+        
+        # Get category distribution
+        for site in result['sites_found']:
+            # Try to get category from site data
+            # This would require additional data - for now we'll skip
+            pass
+        
+        # Get search history from timeline
+        for date_str, searches in self.frequency_cache.get('search_timeline', {}).items():
+            for search in searches:
+                if search['username'] == username:
+                    result['search_history'].append({
+                        'date': date_str,
+                        'accounts_found': search['accounts_found'],
+                        'file': search['file']
+                    })
+        
+        # Sort search history by date
+        result['search_history'].sort(key=lambda x: x['date'], reverse=True)
+        
+        # Get first and last seen
+        if result['search_history']:
+            result['first_seen'] = result['search_history'][-1]['date']
+            result['last_seen'] = result['search_history'][0]['date']
+        
+        return result
+    
+    def get_site_frequency(self, site_name: str) -> dict:
+        """
+        Get frequency statistics for a specific site
+        
+        Args:
+            site_name: Site name to analyze
+            
+        Returns:
+            dictionary with frequency statistics for the site
+        """
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        result = {
+            'site_name': site_name,
+            'total_found': self.frequency_cache.get('site_frequency', {}).get(site_name, 0),
+            'usernames_found': self.frequency_cache.get('site_username_map', {}).get(site_name, []),
+            'username_count': len(self.frequency_cache.get('site_username_map', {}).get(site_name, [])),
+            'popularity_rank': 0,
+            'percentage_of_searches': 0
+        }
+        
+        # Calculate popularity rank
+        if self.frequency_cache.get('site_frequency'):
+            sorted_sites = sorted(
+                self.frequency_cache['site_frequency'].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+            for rank, (site, _) in enumerate(sorted_sites, 1):
+                if site == site_name:
+                    result['popularity_rank'] = rank
+                    break
+        
+        # Calculate percentage
+        total_accounts = self.frequency_cache.get('total_accounts', 1)
+        result['percentage_of_searches'] = (result['total_found'] / total_accounts * 100) if total_accounts > 0 else 0
+        
+        return result
+    
+    def get_most_common_sites(self, limit: int = 10) -> list[tuple[str, int]]:
+        """Get most commonly found sites"""
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        site_freq = self.frequency_cache.get('site_frequency', {})
+        return sorted(site_freq.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    def get_most_active_usernames(self, limit: int = 10) -> list[tuple[str, int]]:
+        """Get usernames found on most sites"""
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        username_freq = {}
+        for identifier, sites in self.frequency_cache.get('username_site_map', {}).items():
+            username_freq[identifier] = len(sites)
+        
+        return sorted(username_freq.items(), key=lambda x: x[1], reverse=True)[:limit]
+    
+    def search_historical_data(self, search_term: str) -> dict:
+        """
+        Search historical data for usernames or sites containing search term
+        
+        Args:
+            search_term: Term to search for
+            
+        Returns:
+            Search results
+        """
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        results = {
+            'usernames': [],
+            'emails': [],
+            'sites': [],
+            'total_matches': 0
+        }
+        
+        search_term_lower = search_term.lower()
+        
+        # Search usernames
+        for username in self.frequency_cache.get('unique_usernames', []):
+            if search_term_lower in username.lower():
+                freq_data = self.get_username_frequency(username)
+                results['usernames'].append({
+                    'username': username,
+                    'site_count': freq_data['site_count'],
+                    'first_seen': freq_data['first_seen'],
+                    'last_seen': freq_data['last_seen']
+                })
+        
+        # Search emails
+        for email in self.frequency_cache.get('unique_emails', []):
+            if search_term_lower in email.lower():
+                freq_data = self.get_username_frequency(email)
+                results['emails'].append({
+                    'email': email,
+                    'site_count': freq_data['site_count'],
+                    'first_seen': freq_data['first_seen'],
+                    'last_seen': freq_data['last_seen']
+                })
+        
+        # Search sites
+        for site in self.frequency_cache.get('unique_sites', []):
+            if search_term_lower in site.lower():
+                freq_data = self.get_site_frequency(site)
+                results['sites'].append({
+                    'site': site,
+                    'total_found': freq_data['total_found'],
+                    'username_count': freq_data['username_count'],
+                    'popularity_rank': freq_data['popularity_rank']
+                })
+        
+        results['total_matches'] = (
+            len(results['usernames']) + 
+            len(results['emails']) + 
+            len(results['sites'])
+        )
+        
+        return results
+    
+    def get_overall_statistics(self) -> dict:
+        """Get overall statistics"""
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        return {
+            'total_reports': self.frequency_cache.get('total_reports', 0),
+            'total_accounts': self.frequency_cache.get('total_accounts', 0),
+            'unique_usernames': len(self.frequency_cache.get('unique_usernames', [])),
+            'unique_emails': len(self.frequency_cache.get('unique_emails', [])),
+            'unique_sites': len(self.frequency_cache.get('unique_sites', [])),
+            'most_common_sites': self.get_most_common_sites(5),
+            'most_active_usernames': self.get_most_active_usernames(5),
+            'last_scan': self.frequency_cache.get('last_scan', 'Never'),
+            'cache_fresh': self._is_cache_fresh()
+        }
+
+# Initialize frequency analyzer
+frequency_analyzer = None
+
+def init_frequency_analyzer():
+    """Initialize frequency analyzer"""
+    global frequency_analyzer
+    try:
+        frequency_analyzer = FrequencyAnalyzer(app.config["REPORTS_FOLDER"])
+        print(f"✓ Frequency analyzer initialized")
+        
+        # Do initial scan in background
+        def background_scan():
+            try:
+                frequency_analyzer.scan_reports()
+                print("✓ Initial frequency scan completed")
+            except Exception as e:
+                print(f"✗ Initial frequency scan failed: {e}")
+        
+        Thread(target=background_scan).start()
+        return True
+    except Exception as e:
+        print(f"✗ Failed to initialize frequency analyzer: {e}")
+        return False
 
 # Reports folder
 app.config["REPORTS_FOLDER"] = os.path.abspath('../results/')
@@ -958,7 +1424,7 @@ async def search_username_blackbird(username, config):
         
         # Import list operations
         try:
-            from modules.whatsmyname.list_operations import readList
+            from modules.whatsmyname.list_operations import readlist
             from modules.utils.filter import applyFilters as blackbird_applyFilters
             if config.verbose:
                 print("VERBOSE: Successfully imported Blackbird core modules")
@@ -969,15 +1435,15 @@ async def search_username_blackbird(username, config):
             use_blackbird_modules = False
         
         # Define fallback functions
-        def fallback_readList(list_type, config):
+        def fallback_readlist(list_type, config):
             if config.verbose:
-                print(f"VERBOSE: Fallback readList for {list_type}")
+                print(f"VERBOSE: Fallback readlist for {list_type}")
             if list_type == "username":
-                path = config.USERNAME_LIST_PATH
+                path = config.USERNAME_list_PATH
             elif list_type == "metadata":
-                path = config.USERNAME_METADATA_LIST_PATH
+                path = config.USERNAME_METADATA_list_PATH
             elif list_type == "email":
-                path = config.EMAIL_LIST_PATH
+                path = config.EMAIL_list_PATH
             else:
                 return {"sites": []}
             
@@ -999,24 +1465,42 @@ async def search_username_blackbird(username, config):
             # Start with all sites
             filtered_sites = sites
             
-            # Remove NSFW sites by default when category is filtered out
-            # We'll handle this via category exclusion instead of separate no_nsfw flag
-            # if config.no_nsfw:
-            #     filtered_sites = [s for s in filtered_sites if s.get("cat") != "xx NSFW xx"]
-            #     print(f"After NSFW filter: {len(filtered_sites)} sites")
-            
-            # Always check if we have a filter string from the web interface
+            # Apply custom filter if provided
             if hasattr(config, 'filter') and config.filter:
-                # Parse the filter string
                 filter_parts = config.filter.split()
                 
                 for filter_part in filter_parts:
                     if config.verbose:
                         print(f"VERBOSE: Processing filter part: '{filter_part}'")
                     
+                    # Handle name~ filter (site name contains)
+                    if filter_part.startswith('name~'):
+                        search_term = filter_part[5:]  # Remove 'name~' prefix
+                        if config.verbose:
+                            print(f"VERBOSE: Searching for sites with name containing: '{search_term}'")
+                        
+                        filtered_sites = [
+                            s for s in filtered_sites 
+                            if search_term.lower() in s.get('name', '').lower()
+                        ]
+                        if config.verbose:
+                            print(f"VERBOSE: After name~ filter: {len(filtered_sites)} sites")
+                    
+                    # Handle name= filter (exact site name match)
+                    elif filter_part.startswith('name='):
+                        search_term = filter_part[5:]  # Remove 'name=' prefix
+                        if config.verbose:
+                            print(f"VERBOSE: Searching for exact site name: '{search_term}'")
+                        
+                        filtered_sites = [
+                            s for s in filtered_sites 
+                            if s.get('name', '').lower() == search_term.lower()
+                        ]
+                        if config.verbose:
+                            print(f"VERBOSE: After name= filter: {len(filtered_sites)} sites")
+                    
                     # Handle category filters
-                    if filter_part.startswith('cat='):
-                        # Include categories: cat=social|tech
+                    elif filter_part.startswith('cat='):
                         categories = filter_part[4:].split('|')
                         if config.verbose:
                             print(f"VERBOSE: Including categories: {categories}")
@@ -1026,10 +1510,9 @@ async def search_username_blackbird(username, config):
                             if s.get('cat', '') in categories
                         ]
                         if config.verbose:
-                            print(f"VERBOSE: After cat= filter: {len(filtered_sites)} sites")
-                        
+                            print(f"VERBOSE: After cat= filter: {len(filtered_sarts)} sites")
+                    
                     elif filter_part.startswith('cat!='):
-                        # Exclude categories: cat!=gaming|shopping
                         categories = filter_part[5:].split('|')
                         if config.verbose:
                             print(f"VERBOSE: Excluding categories: {categories}")
@@ -1040,9 +1523,8 @@ async def search_username_blackbird(username, config):
                         ]
                         if config.verbose:
                             print(f"VERBOSE: After cat!= filter: {len(filtered_sites)} sites")
-                        
+                    
                     elif filter_part.startswith('cat~'):
-                        # Contains filter: cat~social (category contains "social")
                         search_term = filter_part[4:]
                         if config.verbose:
                             print(f"VERBOSE: Category contains: '{search_term}'")
@@ -1053,9 +1535,9 @@ async def search_username_blackbird(username, config):
                         ]
                         if config.verbose:
                             print(f"VERBOSE: After cat~ filter: {len(filtered_sites)} sites")
-                        
-                    elif '=' in filter_part and not filter_part.startswith('cat'):
-                        # Other equality filters: name=twitter
+                    
+                    # Handle other equality filters
+                    elif '=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
                         key, value = filter_part.split('=', 1)
                         filtered_sites = [
                             s for s in filtered_sites 
@@ -1063,9 +1545,9 @@ async def search_username_blackbird(username, config):
                         ]
                         if config.verbose:
                             print(f"VERBOSE: After {key}= filter: {len(filtered_sites)} sites")
-                        
-                    elif '!=' in filter_part and not filter_part.startswith('cat'):
-                        # Other inequality filters: name!=twitter
+                    
+                    # Handle other inequality filters
+                    elif '!=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
                         key, value = filter_part.split('!=', 1)
                         filtered_sites = [
                             s for s in filtered_sites 
@@ -1073,9 +1555,9 @@ async def search_username_blackbird(username, config):
                         ]
                         if config.verbose:
                             print(f"VERBOSE: After {key}!= filter: {len(filtered_sites)} sites")
-                        
-                    elif '~' in filter_part and not filter_part.startswith('cat'):
-                        # Other contains filters: name~twitter
+                    
+                    # Handle other contains filters
+                    elif '~' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
                         key, value = filter_part.split('~', 1)
                         filtered_sites = [
                             s for s in filtered_sites 
@@ -1083,9 +1565,86 @@ async def search_username_blackbird(username, config):
                         ]
                         if config.verbose:
                             print(f"VERBOSE: After {key}~ filter: {len(filtered_sites)} sites")
-                        
+                    
+                    # Handle comparison operators (>, <, >=, <=)
+                    elif '>' in filter_part and '=' not in filter_part:
+                        key, value = filter_part.split('>', 1)
+                        try:
+                            num_value = int(value)
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if int(s.get(key, 0)) > num_value
+                            ]
+                        except ValueError:
+                            # If not a number, treat as string comparison
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if str(s.get(key, '')) > value
+                            ]
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}> filter: {len(filtered_sites)} sites")
+                    
+                    elif '<' in filter_part and '=' not in filter_part:
+                        key, value = filter_part.split('<', 1)
+                        try:
+                            num_value = int(value)
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if int(s.get(key, 0)) < num_value
+                            ]
+                        except ValueError:
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if str(s.get(key, '')) < value
+                            ]
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}< filter: {len(filtered_sites)} sites")
+                    
+                    elif '>=' in filter_part:
+                        key, value = filter_part.split('>=', 1)
+                        try:
+                            num_value = int(value)
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if int(s.get(key, 0)) >= num_value
+                            ]
+                        except ValueError:
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if str(s.get(key, '')) >= value
+                            ]
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}>= filter: {len(filtered_sites)} sites")
+                    
+                    elif '<=' in filter_part:
+                        key, value = filter_part.split('<=', 1)
+                        try:
+                            num_value = int(value)
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if int(s.get(key, 0)) <= num_value
+                            ]
+                        except ValueError:
+                            filtered_sites = [
+                                s for s in filtered_sites 
+                                if str(s.get(key, '')) <= value
+                            ]
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}<= filter: {len(filtered_sites)} sites")
+                    
+                    # Handle logical operators (and, or)
+                    elif filter_part.lower() == 'and':
+                        # 'and' is handled by sequential filtering
+                        continue
+                    elif filter_part.lower() == 'or':
+                        # 'or' logic needs more complex handling
+                        # For simplicity, we'll implement basic OR logic
+                        if config.verbose:
+                            print(f"VERBOSE: OR operator found - complex filters not fully supported in web interface")
+                        continue
+                    
                     else:
-                        # Simple text search
+                        # Simple text search across multiple fields
                         search_term = filter_part.lower()
                         filtered_sites = [
                             s for s in filtered_sites 
@@ -1107,16 +1666,16 @@ async def search_username_blackbird(username, config):
             
             return filtered_sites
         
-        # Use the appropriate readList function
+        # Use the appropriate readlist function
         if use_blackbird_modules:
-            readList_func = readList
+            readlist_func = readlist
         else:
-            readList_func = fallback_readList
+            readlist_func = fallback_readlist
         
         # Load site data
-        data = readList_func("username", config)
+        data = readlist_func("username", config)
         if config.verbose:
-            print(f"VERBOSE: Loaded {len(data.get('sites', []))} sites from {config.USERNAME_LIST_PATH}")
+            print(f"VERBOSE: Loaded {len(data.get('sites', []))} sites from {config.USERNAME_list_PATH}")
         
         # Apply filters - ALWAYS use web_applyFilters to ensure category filters work
         sites_to_search = data.get("sites", [])
@@ -1125,7 +1684,7 @@ async def search_username_blackbird(username, config):
             print(f"VERBOSE: After filtering: {len(config.username_sites)} sites")
         
         # Load metadata
-        metadata_data = readList_func("metadata", config)
+        metadata_data = readlist_func("metadata", config)
         config.metadata_params = metadata_data
         
         # Perform search
@@ -1159,14 +1718,14 @@ async def search_email_blackbird(email, config):
         
         # Import required modules
         from modules.core.email import verifyEmail
-        from modules.whatsmyname.list_operations import readList
+        from modules.whatsmyname.list_operations import readlist
         from modules.utils.filter import applyFilters
         import asyncio
         import aiohttp
         import time
         
         # Load email data
-        data = readList("email", config)
+        data = readlist("email", config)
         sitesToSearch = data["sites"]
         config.email_sites = applyFilters(sitesToSearch, config)
         
@@ -1789,7 +2348,7 @@ def create_session_folder(username, search_type):
     session_folder = os.path.join(app.config["REPORTS_FOLDER"], folder_name)
     return folder_name, session_folder
 
-def process_search_task(search_items, search_type, options, timestamp):
+def process_search_task(search_items, search_type, options, timestamp, enable_frequency=False):
     """Background task to process search using actual Blackbird code"""
     try:
         print(f"Starting search task for {len(search_items)} items")
@@ -1840,7 +2399,7 @@ def process_search_task(search_items, search_type, options, timestamp):
             # Save reports
             reports = save_reports(found_accounts, item, session_folder, config, search_type)
             
-            individual_reports.append({
+            report_data = {
                 'username': item,
                 'search_type': search_type,
                 'folder_name': folder_name,
@@ -1849,7 +2408,60 @@ def process_search_task(search_items, search_type, options, timestamp):
                 'pdf_file': reports.get('pdf_file'),
                 'claimed_profiles': claimed_profiles,
                 'total_found': result['total_found']
-            })
+            }
+            
+            # Add frequency data if enabled
+            if enable_frequency and frequency_analyzer:
+                print(f"Adding frequency analysis for {item}...")
+                
+                # Scan reports to ensure fresh data
+                frequency_analyzer.scan_reports()
+                
+                # Get frequency data for this user
+                freq_data = frequency_analyzer.get_username_frequency(item)
+                
+                # Calculate frequency percentage
+                total_reports = frequency_analyzer.frequency_cache.get('total_reports', 1)
+                user_reports = len(freq_data.get('search_history', []))
+                frequency_percentage = (user_reports / total_reports * 100) if total_reports > 0 else 0
+                
+                # Get most common sites for this user
+                common_sites = []
+                for site in freq_data.get('sites_found', []):
+                    site_freq = frequency_analyzer.get_site_frequency(site)
+                    common_sites.append({
+                        'site': site,
+                        'count': site_freq.get('total_found', 0),
+                        'username_count': site_freq.get('username_count', 0)
+                    })
+                
+                # Sort by count
+                common_sites.sort(key=lambda x: x['count'], reverse=True)
+                
+                report_data['frequency_data'] = {
+                    'username': item,
+                    'search_type': search_type,
+                    'total_occurrences': user_reports,
+                    'site_count': freq_data.get('site_count', 0),
+                    'first_seen': freq_data.get('first_seen'),
+                    'last_seen': freq_data.get('last_seen'),
+                    'common_sites': common_sites[:5],  # Top 5 sites
+                    'frequency_percentage': frequency_percentage
+                }
+            
+            individual_reports.append(report_data)
+        
+        # Get overall common sites if frequency analysis is enabled
+        common_sites_formatted = []
+        if enable_frequency and frequency_analyzer:
+            common_sites_overall = frequency_analyzer.get_most_common_sites(10)
+            for site, count in common_sites_overall:
+                site_freq = frequency_analyzer.get_site_frequency(site)
+                common_sites_formatted.append({
+                    'site': site,
+                    'count': count,
+                    'username_count': site_freq.get('username_count', 0)
+                })
         
         # Save job results
         job_results[timestamp] = {
@@ -1857,7 +2469,10 @@ def process_search_task(search_items, search_type, options, timestamp):
             'search_items': search_items,
             'search_type': search_type,
             'individual_reports': individual_reports,
-            'timestamp': timestamp
+            'timestamp': timestamp,
+            'enable_frequency': enable_frequency,
+            'frequency_data': [r.get('frequency_data') for r in individual_reports if r.get('frequency_data')],
+            'common_sites_overall': common_sites_formatted
         }
         
         print(f"Search completed successfully for session {timestamp}")
@@ -1886,10 +2501,10 @@ def index():
         
         try:
             config = BlackbirdConfig()
-            print(f"Config created, looking for data at: {config.USERNAME_LIST_PATH}")
+            print(f"Config created, looking for data at: {config.USERNAME_list_PATH}")
             
-            if os.path.exists(config.USERNAME_LIST_PATH):
-                with open(config.USERNAME_LIST_PATH, 'r', encoding='utf-8') as f:
+            if os.path.exists(config.USERNAME_list_PATH):
+                with open(config.USERNAME_list_PATH, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
                 # Load site names
@@ -1923,7 +2538,7 @@ def index():
                 print(f"Categories found: {categories}")
                 
             else:
-                print(f"Data file not found: {config.USERNAME_LIST_PATH}")
+                print(f"Data file not found: {config.USERNAME_list_PATH}")
                 # Try alternative path: ../blackbird/data/wmn-data.json
                 alt_path = os.path.join(CURRENT_DIR, '..', 'blackbird', 'data', 'wmn-data.json')
                 if os.path.exists(alt_path):
@@ -1978,8 +2593,8 @@ def index():
         
         try:
             config = BlackbirdConfig()
-            if os.path.exists(config.EMAIL_LIST_PATH):
-                with open(config.EMAIL_LIST_PATH, 'r', encoding='utf-8') as f:
+            if os.path.exists(config.EMAIL_list_PATH):
+                with open(config.EMAIL_list_PATH, 'r', encoding='utf-8') as f:
                     email_data = json.load(f)
                 
                 email_site_names = sorted(set([
@@ -1995,7 +2610,7 @@ def index():
                 
                 print(f"Loaded {len(email_site_names)} email sites and {len(email_categories)} email categories")
             else:
-                print(f"Email data file not found: {config.EMAIL_LIST_PATH}")
+                print(f"Email data file not found: {config.EMAIL_list_PATH}")
                 # Create sample email data for testing
                 email_site_names = ["Have I Been Pwned", "DeHashed", "Hunter.io", "EmailRep", "BreachDirectory"]
                 email_categories = ["security", "professional", "verification"]
@@ -2092,6 +2707,10 @@ def search():
     try:
         print("Processing search request...")
         
+        # Check if frequency analysis is enabled
+        enable_frequency = 'enable_frequency' in request.form
+        show_common_sites = 'show_common_sites' in request.form
+        
         # Determine search type
         search_type = 'username'  # Default to username search
         search_input = ''
@@ -2178,18 +2797,23 @@ def search():
             'filter': final_filter,  # Pass combined filter to Blackbird
             'include_categories': include_categories,  # Keep raw for reference
             'exclude_categories': exclude_categories,  # Keep raw for reference
+            'enable_frequency': enable_frequency,
+            'show_common_sites': show_common_sites
         }
         
         print(f"Category filters - Included: {include_categories}, Excluded: {exclude_categories}")
         print(f"Final filter string: '{final_filter}'")
+        print(f"Frequency analysis enabled: {enable_frequency}")
         
         # Start background job
         background_jobs[timestamp] = {
             'completed': False,
             'thread': Thread(
                 target=process_search_task,
-                args=(search_items, search_type, options, timestamp)
+                args=(search_items, search_type, options, timestamp, enable_frequency)
             ),
+            'enable_frequency': enable_frequency,
+            'show_common_sites': show_common_sites
         }
         background_jobs[timestamp]['thread'].start()
         
@@ -2236,6 +2860,10 @@ def status(timestamp):
 def results(session_id):
     """Display search results"""
     try:
+        # IMPORTANT: Clear all flash messages first
+        from flask import get_flashed_messages
+        get_flashed_messages()  # Clears the flash queue
+        
         print(f"Displaying results for session: {session_id}")
         
         # Find results for this session
@@ -2244,13 +2872,12 @@ def results(session_id):
         if not result_data:
             # Check if job is still running
             if session_id in background_jobs and not background_jobs[session_id]['completed']:
-                # Job is still running, show waiting page
-                flash('Search is still in progress. Please wait...', 'info')
+                # Use a simple return without flash to prevent spamming
                 return render_template('status.html', timestamp=session_id)
             else:
+                # Show error but only once
                 flash('No results found for this session', 'danger')
                 return redirect(url_for('index'))
-        
         if result_data.get('status') != 'completed':
             error_msg = result_data.get('error', 'Unknown error')
             flash(f'Search failed: {error_msg}', 'danger')
@@ -2286,6 +2913,9 @@ def results(session_id):
             search_type=result_data['search_type'],
             individual_reports=adapted_reports,
             timestamp=session_id,
+            enable_frequency=result_data.get('enable_frequency', False),
+            frequency_data=result_data.get('frequency_data', []),
+            common_sites_overall=result_data.get('common_sites_overall', [])
         )
         
     except Exception as e:
@@ -2342,11 +2972,11 @@ def get_site_tags():
         
         config = BlackbirdConfig()
         
-        if not os.path.exists(config.USERNAME_LIST_PATH):
-            print(f"Data file not found: {config.USERNAME_LIST_PATH}")
+        if not os.path.exists(config.USERNAME_list_PATH):
+            print(f"Data file not found: {config.USERNAME_list_PATH}")
             return {'tags': [], 'total_sites': 0, 'status': 'no_data'}
         
-        with open(config.USERNAME_LIST_PATH, 'r', encoding='utf-8') as f:
+        with open(config.USERNAME_list_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         all_tags = set()
@@ -2389,13 +3019,13 @@ def get_stats():
         try:
             config = BlackbirdConfig()
             
-            if os.path.exists(config.USERNAME_LIST_PATH):
-                with open(config.USERNAME_LIST_PATH, 'r', encoding='utf-8') as f:
+            if os.path.exists(config.USERNAME_list_PATH):
+                with open(config.USERNAME_list_PATH, 'r', encoding='utf-8') as f:
                     username_data = json.load(f)
                 stats['username_sites'] = len(username_data.get('sites', []))
             
-            if os.path.exists(config.EMAIL_LIST_PATH):
-                with open(config.EMAIL_LIST_PATH, 'r', encoding='utf-8') as f:
+            if os.path.exists(config.EMAIL_list_PATH):
+                with open(config.EMAIL_list_PATH, 'r', encoding='utf-8') as f:
                     email_data = json.load(f)
                 stats['email_sites'] = len(email_data.get('sites', []))
                 
@@ -2419,6 +3049,86 @@ def get_search_types():
             {'id': 'email', 'name': 'Email Search', 'description': 'Search for email addresses across platforms'},
         ]
     }
+
+@app.route('/api/frequency/overview')
+def get_frequency_overview():
+    """Get overview of frequency analysis"""
+    try:
+        if not frequency_analyzer:
+            return {'error': 'Frequency analyzer not initialized', 'status': 'error'}
+        
+        data = frequency_analyzer.scan_reports()
+        
+        # Prepare response
+        response = {
+            'total_reports': data.get('total_reports', 0),
+            'total_accounts': data.get('total_accounts', 0),
+            'unique_usernames': len(data.get('unique_usernames', [])),
+            'unique_emails': len(data.get('unique_emails', [])),
+            'unique_sites': len(data.get('unique_sites', [])),
+            'most_common_sites': [],
+            'last_scan': data.get('last_scan', 'Never'),
+            'status': 'success'
+        }
+        
+        # Get top 10 sites
+        top_sites = frequency_analyzer.get_most_common_sites(10)
+        for site, count in top_sites:
+            response['most_common_sites'].append({
+                'site': site,
+                'count': count
+            })
+        
+        return response
+        
+    except Exception as e:
+        return {'error': str(e), 'status': 'error'}
+
+@app.route('/api/frequency/search')
+def search_frequency_data():
+    """Search historical frequency data"""
+    try:
+        search_term = request.args.get('q', '')
+        if not search_term:
+            return {'error': 'No search term provided', 'status': 'error'}
+        
+        if not frequency_analyzer:
+            return {'error': 'Frequency analyzer not initialized'}
+        
+        results = frequency_analyzer.search_historical_data(search_term)
+        results['status'] = 'success'
+        return results
+        
+    except Exception as e:
+        return {'error': str(e), 'status': 'error'}
+
+@app.route('/api/frequency/username/<username>')
+def get_username_frequency(username):
+    """Get frequency data for specific username"""
+    try:
+        if not frequency_analyzer:
+            return {'error': 'Frequency analyzer not initialized'}
+        
+        freq_data = frequency_analyzer.get_username_frequency(username)
+        freq_data['status'] = 'success'
+        return freq_data
+        
+    except Exception as e:
+        return {'error': str(e), 'status': 'error'}
+
+@app.route('/api/frequency/site/<site_name>')
+def get_site_frequency(site_name):
+    """Get frequency data for specific site"""
+    try:
+        if not frequency_analyzer:
+            return {'error': 'Frequency analyzer not initialized'}
+        
+        freq_data = frequency_analyzer.get_site_frequency(site_name)
+        freq_data['status'] = 'success'
+        return freq_data
+        
+    except Exception as e:
+        return {'error': str(e), 'status': 'error'}
 
 @app.route('/health')
 def health():
@@ -2458,12 +3168,15 @@ if __name__ == '__main__':
     print("\n[2] Loading Blackbird modules...")
     load_blackbird_modules()
     
+    print("\n[3] Initializing frequency analyzer...")
+    init_frequency_analyzer()
+    
     # Test data files
-    print("\n[3] Checking data files...")
+    print("\n[4] Checking data files...")
     config = BlackbirdConfig()
-    print(f"  Username list: {config.USERNAME_LIST_PATH} - {'✓' if os.path.exists(config.USERNAME_LIST_PATH) else '✗'}")
-    print(f"  Email list: {config.EMAIL_LIST_PATH} - {'✓' if os.path.exists(config.EMAIL_LIST_PATH) else '✗'}")
-    print(f"  Metadata: {config.USERNAME_METADATA_LIST_PATH} - {'✓' if os.path.exists(config.USERNAME_METADATA_LIST_PATH) else '✗'}")
+    print(f"  Username list: {config.USERNAME_list_PATH} - {'✓' if os.path.exists(config.USERNAME_list_PATH) else '✗'}")
+    print(f"  Email list: {config.EMAIL_list_PATH} - {'✓' if os.path.exists(config.EMAIL_list_PATH) else '✗'}")
+    print(f"  Metadata: {config.USERNAME_METADATA_list_PATH} - {'✓' if os.path.exists(config.USERNAME_METADATA_list_PATH) else '✗'}")
     
     # Check assets
     if BLACKBIRD_ASSETS_DIR:
@@ -2474,7 +3187,8 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    print(f"\n[4] Starting server on {host}:{port} (debug={debug_mode})")
+    print(f"\n[5] Starting server on {host}:{port} (debug={debug_mode})")
     print("=" * 60)
     
-    app.run(debug=debug_mode, host=host, port=port)
+    # app.run(debug=debug_mode, host=host, port=port)
+    app.run(host=host, port=port)

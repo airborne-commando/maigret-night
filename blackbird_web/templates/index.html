@@ -218,6 +218,88 @@
     .remove-site:hover {
         opacity: 0.8;
     }
+    .frequency-analysis-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .frequency-badge {
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        color: white;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 5px;
+    }
+    
+    .frequency-high {
+        background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%);
+    }
+    
+    .frequency-medium {
+        background: linear-gradient(135deg, #ff9800 0%, #ef6c00 100%);
+    }
+    
+    .frequency-low {
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+    }
+    
+    .frequency-result-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        border-left: 3px solid #3949ab;
+    }
+    
+    .frequency-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+    }
+    
+    .frequency-tooltip .tooltip-text {
+        visibility: hidden;
+        width: 300px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 10px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .frequency-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    .frequency-bar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        margin-top: 5px;
+        overflow: hidden;
+    }
+    
+    .frequency-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #2e7d32);
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
 </style>
 
 <div class="blackbird-header">
@@ -250,6 +332,42 @@
             <span class="stat-value" id="emailSites">--</span>
             <span class="stat-label">Email Sites</span>
         </div>
+    </div>
+</div>
+
+<div class="frequency-analysis-card">
+    <h5><i class="fas fa-chart-line"></i> Historical Frequency Analysis</h5>
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 
+        Analyze how often usernames appear across historical search results. 
+        Check the box below to enable frequency analysis for your search.
+    </div>
+    
+    <div class="mb-3">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="enable_frequency" name="enable_frequency">
+            <label class="form-check-label" for="enable_frequency">
+                <strong>Enable Frequency Analysis</strong> - Show historical occurrence data in results
+            </label>
+        </div>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="show_common_sites" name="show_common_sites" checked>
+            <label class="form-check-label" for="show_common_sites">
+                Show most common sites in results
+            </label>
+        </div>
+    </div>
+    
+    <div class="frequency-preview" id="frequencyPreview" style="display: none;">
+        <h6><i class="fas fa-search"></i> Historical Search</h6>
+        <div class="input-group mb-3">
+            <input type="text" class="form-control" id="historicalSearch" 
+                   placeholder="Search historical data for usernames, emails, or sites...">
+            <button class="btn btn-outline-secondary" type="button" id="searchHistorical">
+                <i class="fas fa-search"></i> Search
+            </button>
+        </div>
+        <div id="historicalResults" class="mt-3"></div>
     </div>
 </div>
 
@@ -439,9 +557,10 @@
                 <div class="mb-3">
                     <label for="filter" class="form-label">Custom Filter</label>
                     <input type="text" class="form-control" id="filter" name="filter"
-                        placeholder='E.g., "cat=social" or "name~twitter"'>
+                        placeholder='E.g., "name~YouNow" or "cat=social and name~twitter"'>
                     <div class="form-text">
-                        Use Blackbird filter syntax: property=value, property~value, etc.
+                        Use Blackbird filter syntax: <code>name~value</code> (contains), <code>name=value</code> (exact), 
+                        <code>cat=value</code>, <code>e_code>200</code>, etc. Use <code>and</code>/<code>or</code> for logical operations.
                     </div>
                 </div>
             </div>
@@ -608,14 +727,15 @@
             });
         });
     }
-    
-    // Setup site selection
+
+    // Setup tag cloud
     function setupSiteSelection() {
         const siteInput = document.getElementById('siteInput');
         const hiddenInput = document.getElementById('site');
+        const filterInput = document.getElementById('filter');
         const selectedSitesContainer = document.getElementById('selectedSites');
         
-        if (!siteInput || !selectedSitesContainer) return;
+        if (!siteInput || !selectedSitesContainer || !filterInput) return;
         
         let selectedSites = new Set();
         
@@ -623,10 +743,35 @@
             hiddenInput.value = Array.from(selectedSites).join(',');
         }
         
+        // NEW FUNCTION: Automatically creates filter from selected sites
+        // See about using catagories instead for easier functions....
+        // and URI's...
+        function updateFilterFromSelectedSites() {
+            if (selectedSites.size > 0) {
+                // Create name= filters for each site (EXACT MATCH)
+                const nameFilters = Array.from(selectedSites).map(site => `name=${site}`);
+                
+                // Join multiple sites with OR operator
+                if (nameFilters.length === 1) {
+                    filterInput.value = nameFilters[0];
+                } else {
+                    filterInput.value = nameFilters.join(' and ');
+                }
+                
+                console.log('Generated filter from selected sites (exact match):', filterInput.value);
+            } else {
+                // Clear filter if no sites selected
+                filterInput.value = '';
+            }
+        }
+        
         function addSite(site) {
             if (site && !selectedSites.has(site)) {
                 selectedSites.add(site);
                 updateHiddenInput();
+                updateFilterFromSelectedSites(); // NEW: Update the filter
+                
+                // Create visual element for selected site
                 const siteElement = document.createElement('span');
                 siteElement.className = 'selected-site';
                 siteElement.innerHTML = `${site}<span class="remove-site" data-site="${site}">&times;</span>`;
@@ -637,6 +782,9 @@
         function removeSite(site) {
             selectedSites.delete(site);
             updateHiddenInput();
+            updateFilterFromSelectedSites(); // NEW: Update the filter
+            
+            // Remove visual element
             const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
             siteElements.forEach(el => {
                 if (el.querySelector('.remove-site').dataset.site === site) {
@@ -899,5 +1047,194 @@ form.addEventListener('submit', function(e) {
     
     // Allow form submission to proceed
 });
+    // Toggle frequency preview
+    document.getElementById('enable_frequency').addEventListener('change', function() {
+        const preview = document.getElementById('frequencyPreview');
+        preview.style.display = this.checked ? 'block' : 'none';
+        
+        if (this.checked) {
+            // Load initial historical data
+            loadHistoricalOverview();
+        }
+    });
+    
+    // Historical search functionality
+    document.getElementById('searchHistorical').addEventListener('click', function() {
+        const searchTerm = document.getElementById('historicalSearch').value.trim();
+        if (searchTerm) {
+            searchHistoricalData(searchTerm);
+        }
+    });
+    
+    document.getElementById('historicalSearch').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const searchTerm = this.value.trim();
+            if (searchTerm) {
+                searchHistoricalData(searchTerm);
+            }
+        }
+    });
+    
+    async function loadHistoricalOverview() {
+        try {
+            const response = await fetch('/api/frequency/overview');
+            const data = await response.json();
+            
+            if (data.error) {
+                document.getElementById('historicalResults').innerHTML = 
+                    `<div class="alert alert-warning">${data.error}</div>`;
+                return;
+            }
+            
+            let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="frequency-result-item">
+                            <h6><i class="fas fa-file-alt"></i> Reports</h6>
+                            <div class="h4">${data.total_reports}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="frequency-result-item">
+                            <h6><i class="fas fa-users"></i> Unique Users</h6>
+                            <div class="h4">${data.unique_usernames + data.unique_emails}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6><i class="fas fa-trophy"></i> Most Common Sites</h6>
+                    <div class="list-group">
+            `;
+            
+            if (data.most_common_sites && data.most_common_sites.length > 0) {
+                data.most_common_sites.forEach((site, index) => {
+                    const percentage = ((site.count / data.total_accounts) * 100).toFixed(1);
+                    html += `
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>
+                                    <span class="badge bg-primary me-2">${index + 1}</span>
+                                    ${site.site}
+                                </span>
+                                <span class="text-muted">
+                                    ${site.count} accounts (${percentage}%)
+                                </span>
+                            </div>
+                            <div class="frequency-bar">
+                                <div class="frequency-bar-fill" style="width: ${Math.min(100, percentage)}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += `<div class="alert alert-info">No historical data available yet.</div>`;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('historicalResults').innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading historical overview:', error);
+            document.getElementById('historicalResults').innerHTML = 
+                `<div class="alert alert-danger">Error loading historical data: ${error.message}</div>`;
+        }
+    }
+    
+    async function searchHistoricalData(searchTerm) {
+        try {
+            const response = await fetch(`/api/frequency/search?q=${encodeURIComponent(searchTerm)}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                document.getElementById('historicalResults').innerHTML = 
+                    `<div class="alert alert-warning">${data.error}</div>`;
+                return;
+            }
+            
+            let html = `<h6>Search Results for "${searchTerm}"</h6>`;
+            
+            if (data.total_matches === 0) {
+                html += `<div class="alert alert-info">No matches found.</div>`;
+            } else {
+                html += `<p class="text-muted">Found ${data.total_matches} matches</p>`;
+                
+                if (data.usernames.length > 0) {
+                    html += `
+                        <h6 class="mt-3"><i class="fas fa-user"></i> Usernames (${data.usernames.length})</h6>
+                        <div class="list-group">
+                    `;
+                    data.usernames.forEach(user => {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <strong>${user.username}</strong>
+                                    <span class="badge bg-info">${user.site_count} sites</span>
+                                </div>
+                                <small class="text-muted">
+                                    First: ${user.first_seen || 'N/A'} | 
+                                    Last: ${user.last_seen || 'N/A'}
+                                </small>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+                
+                if (data.emails.length > 0) {
+                    html += `
+                        <h6 class="mt-3"><i class="fas fa-envelope"></i> Emails (${data.emails.length})</h6>
+                        <div class="list-group">
+                    `;
+                    data.emails.forEach(email => {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <strong>${email.email}</strong>
+                                    <span class="badge bg-info">${email.site_count} sites</span>
+                                </div>
+                                <small class="text-muted">
+                                    First: ${email.first_seen || 'N/A'} | 
+                                    Last: ${email.last_seen || 'N/A'}
+                                </small>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+                
+                if (data.sites.length > 0) {
+                    html += `
+                        <h6 class="mt-3"><i class="fas fa-globe"></i> Sites (${data.sites.length})</h6>
+                        <div class="list-group">
+                    `;
+                    data.sites.forEach(site => {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <strong>${site.site}</strong>
+                                    <span>
+                                        <span class="badge bg-primary me-2">Rank #${site.popularity_rank}</span>
+                                        <span class="badge bg-info">${site.total_found} accounts</span>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+            }
+            
+            document.getElementById('historicalResults').innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error searching historical data:', error);
+            document.getElementById('historicalResults').innerHTML = 
+                `<div class="alert alert-danger">Error searching historical data: ${error.message}</div>`;
+        }
+    }
 </script>
 {% endblock %}

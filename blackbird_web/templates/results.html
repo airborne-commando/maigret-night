@@ -176,7 +176,7 @@
     </div>
     
     <!-- Flash messages -->
-    {% with messages = get_flashed_messages() %}
+<!--     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for message in messages %}
             <div class="alert alert-info alert-dismissible fade show">
@@ -185,7 +185,7 @@
             </div>
             {% endfor %}
         {% endif %}
-    {% endwith %}
+    {% endwith %} -->
  
     <div class="alert alert-secondary mb-4">
         <div class="d-flex justify-content-between align-items-center">
@@ -204,6 +204,120 @@
             </div>
         </div>
     </div>
+
+    <div class="frequency-analysis-results">
+        <h5><i class="fas fa-chart-bar"></i> Frequency Analysis</h5>
+        
+        <div class="row">
+            {% for freq in frequency_data %}
+            <div class="col-md-6 mb-3">
+                <div class="frequency-result-card">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">
+                            <i class="fas fa-{{ 'user' if freq.search_type == 'username' else 'envelope' }}"></i>
+                            {{ freq.username }}
+                        </h6>
+                        <span class="badge bg-info">{{ freq.site_count }} sites</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            Found {{ freq.total_occurrences }} times in historical data
+                        </small>
+                    </div>
+                    
+                    {% if freq.common_sites and freq.common_sites|length > 0 %}
+                    <div class="mb-2">
+                        <small class="text-muted">Most Common Sites:</small>
+                        <div class="mt-1">
+                            {% for site in freq.common_sites[:3] %}
+                            <span class="badge bg-secondary me-1 mb-1">
+                                {{ site.site }} ({{ site.count }})
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="frequency-timeline">
+                        <small class="text-muted">Timeline:</small>
+                        <div class="mt-1">
+                            {% if freq.first_seen %}
+                            <span class="badge bg-success me-1">First: {{ freq.first_seen }}</span>
+                            {% endif %}
+                            {% if freq.last_seen %}
+                            <span class="badge bg-primary">Last: {{ freq.last_seen }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="frequency-percentage mt-2">
+                        <div class="d-flex justify-content-between">
+                            <small>Historical Frequency:</small>
+                            <small>{{ freq.frequency_percentage|round(1) }}%</small>
+                        </div>
+                        <div class="frequency-bar">
+                            <div class="frequency-bar-fill" style="width: {{ freq.frequency_percentage|round(1) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if common_sites_overall and common_sites_overall|length > 0 %}
+        <div class="common-sites-overview mt-4">
+            <h6><i class="fas fa-trophy"></i> Most Common Sites in Historical Data</h6>
+            <div class="row">
+                {% for site in common_sites_overall[:6] %}
+                <div class="col-md-4 mb-2">
+                    <div class="common-site-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="site-name">{{ site.site }}</span>
+                            <span class="badge bg-primary">{{ site.count }}</span>
+                        </div>
+                        <small class="text-muted">Found {{ site.username_count }} times</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <style>
+        .frequency-analysis-results {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(57, 73, 171, 0.3);
+        }
+        
+        .frequency-result-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 1rem;
+            border-left: 3px solid #4caf50;
+        }
+        
+        .common-site-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            padding: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .site-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .frequency-timeline .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+    </style>
  
     {% if individual_reports %}
     <div class="reports-list">
