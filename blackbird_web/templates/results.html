@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .tag-badge {
+       background-color: #3949ab;
+       padding: 4px 10px;
+       border-radius: 15px;
+       font-size: 12px;
+       display: inline-flex;
+       align-items: center;
+       gap: 5px;
+       margin: 2px;
+       color: white;
+       font-weight: 500;
+    }
+    
+    .profile-list {
+       list-style: none;
+       padding: 0;
+    }
+    
+    .profile-item {
+       margin-bottom: 10px;
+       padding: 15px;
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+       background: rgba(255, 255, 255, 0.03);
+       border-radius: 8px;
+       transition: background 0.3s;
+    }
+    
+    .profile-item:hover {
+       background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .profile-link {
+       display: flex;
+       align-items: center;
+       gap: 12px;
+       flex-grow: 1;
+    }
+    
+    .favicon {
+       width: 20px;
+       height: 20px;
+       border-radius: 3px;
+    }
+    
+    .tag-container {
+       display: flex;
+       flex-wrap: wrap;
+       gap: 5px;
+       justify-content: flex-end;
+       min-width: 200px;
+    }
+    
+    .report-container {
+       margin-bottom: 1.5rem;
+       border: 1px solid rgba(255, 255, 255, 0.1);
+       border-radius: 8px;
+       overflow: hidden;
+    }
+    
+    .report-header {
+       cursor: pointer;
+       padding: 1.25rem;
+       background: rgba(57, 73, 171, 0.2);
+       border-radius: 4px;
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       transition: background 0.3s;
+    }
+    
+    .report-header:hover {
+       background: rgba(57, 73, 171, 0.3);
+    }
+    
+    .report-content {
+       padding: 1.5rem;
+       display: none;
+       background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .report-content.show {
+       display: block;
+    }
+    
+    .chevron::after {
+       content: '▼';
+       margin-left: 8px;
+       transition: transform 0.2s;
+       font-size: 0.9em;
+    }
+    
+    .chevron.collapsed::after {
+       transform: rotate(-90deg);
+    }
+    
+    .search-type-badge {
+        background: linear-gradient(135deg, #3949ab 0%, #283593 100%);
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+    }
+    
+    .stats-badge {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 5px 12px;
+        border-radius: 15px;
+        font-size: 14px;
+        margin-left: 10px;
+    }
+    
+    .file-links {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .file-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 15px;
+        background: rgba(57, 73, 171, 0.2);
+        border-radius: 6px;
+        text-decoration: none;
+        color: #8c9eff;
+        transition: background 0.3s;
+    }
+    
+    .file-link:hover {
+        background: rgba(57, 73, 171, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 3rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        border: 2px dashed rgba(255, 255, 255, 0.1);
+    }
+    
+    .no-results-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+
+<div class="form-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">
+            <i class="fas fa-search"></i> Search Results
+            {% if search_type %}
+            <span class="search-type-badge">
+                <i class="fas fa-{{ 'user' if search_type == 'username' else 'envelope' }}"></i>
+                {{ search_type|title }} Search
+            </span>
+            {% endif %}
+        </h1>
+        <div>
+            <span class="stats-badge">
+                <i class="fas fa-users"></i> {{ individual_reports|length }} {{ 'user' if individual_reports|length == 1 else 'users' }}
+            </span>
+        </div>
+    </div>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-info alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+ 
+    <div class="alert alert-secondary mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-info-circle"></i> 
+                Search completed at {{ timestamp }}. 
+                <a href="{{ url_for('index')}}" class="alert-link">Start a new search</a>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-outline-light" onclick="expandAll()">
+                    <i class="fas fa-expand"></i> Expand All
+                </button>
+                <button class="btn btn-sm btn-outline-light" onclick="collapseAll()">
+                    <i class="fas fa-compress"></i> Collapse All
+                </button>
+            </div>
+        </div>
+    </div>
+ 
+    {% if individual_reports %}
+    <div class="reports-list">
+        {% for report in individual_reports %}
+        <div class="report-container">
+            <div class="report-header" onclick="toggleReport(this)" data-target="report-{{ loop.index }}">
+                <h5 class="mb-0 d-flex align-items-center">
+                    <span>
+                        <i class="fas fa-{{ 'user' if report.search_type == 'username' else 'envelope' }} me-2"></i>
+                        {{ report.username }}
+                    </span>
+                    <span class="chevron"></span>
+                </h5>
+                <div class="d-flex align-items-center">
+                    <span class="stats-badge me-3">
+                        <i class="fas fa-check-circle"></i> {{ report.total_found }} found
+                    </span>
+                    <span class="text-muted">
+                        {% if report.search_type %}
+                        <i class="fas fa-{{ 'user' if report.search_type == 'username' else 'envelope' }}"></i>
+                        {{ report.search_type }}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div id="report-{{ loop.index }}" class="report-content">
+                <div class="file-links">
+                    {% if report.csv_file %}
+                    <a href="{{ url_for('download_report', filename=report.csv_file) }}" class="file-link">
+                        <i class="fas fa-file-csv"></i> CSV Report
+                    </a>
+                    {% endif %}
+                    
+                    {% if report.json_file %}
+                    <a href="{{ url_for('download_report', filename=report.json_file) }}" class="file-link">
+                        <i class="fas fa-file-code"></i> JSON Report
+                    </a>
+                    {% endif %}
+                    
+                    {% if report.pdf_file %}
+                    <a href="{{ url_for('download_report', filename=report.pdf_file) }}" class="file-link">
+                        <i class="fas fa-file-pdf"></i> PDF Report
+                    </a>
+                    {% endif %}
+                </div>
+                
+                {% if report.claimed_profiles and report.claimed_profiles|length > 0 %}
+                <div class="mb-3">
+                    <h6>
+                        <i class="fas fa-user-check"></i> Found Accounts ({{ report.claimed_profiles|length }})
+                    </h6>
+                    <ul class="profile-list">
+                        {% for profile in report.claimed_profiles %}
+                        <li class="profile-item">
+                            <div class="profile-link">
+                                <img class="favicon" 
+                                     src="https://www.google.com/s2/favicons?domain={{ profile.url|urlencode }}" 
+                                     onerror="this.style.display='none'" 
+                                     alt="">
+                                <div>
+                                    <a href="{{ profile.url }}" target="_blank" class="fw-bold">
+                                        {{ profile.site_name }}
+                                    </a>
+                                    {% if profile.category %}
+                                    <div class="text-muted small mt-1">
+                                        <i class="fas fa-tag"></i> {{ profile.category }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if profile.tags and profile.tags|length > 0 %}
+                            <div class="tag-container">
+                                {% for tag in profile.tags %}
+                                <span class="tag-badge">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="no-results">
+                    <div class="no-results-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h5>No accounts found</h5>
+                    <p class="text-muted">No accounts were discovered for this {{ report.search_type or 'search' }}.</p>
+                </div>
+                {% endif %}
+                
+                {% if report.metadata and report.metadata|length > 0 %}
+                <div class="mt-4">
+                    <h6><i class="fas fa-info-circle"></i> Extracted Metadata</h6>
+                    <div class="row">
+                        {% for data in report.metadata %}
+                        <div class="col-md-6 mb-2">
+                            <div class="bg-dark p-3 rounded">
+                                <small class="text-muted">{{ data.name }}</small>
+                                <div class="mt-1">{{ data.value }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-results">
+        <div class="no-results-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h5>No search results available</h5>
+        <p class="text-muted">The search did not return any results or an error occurred.</p>
+        <a href="{{ url_for('index') }}" class="btn btn-primary mt-3">
+            <i class="fas fa-redo"></i> Start New Search
+        </a>
+    </div>
+    {% endif %}
+ </div>
+ 
+ <script>
+ function toggleReport(header) {
+    const reportId = header.getAttribute('data-target');
+    const content = document.getElementById(reportId);
+    content.classList.toggle('show');
+    header.querySelector('.chevron').classList.toggle('collapsed');
+ }
+ 
+ function expandAll() {
+    document.querySelectorAll('.report-content').forEach(content => {
+        content.classList.add('show');
+    });
+    document.querySelectorAll('.chevron').forEach(chevron => {
+        chevron.classList.remove('collapsed');
+    });
+ }
+ 
+ function collapseAll() {
+    document.querySelectorAll('.report-content').forEach(content => {
+        content.classList.remove('show');
+    });
+    document.querySelectorAll('.chevron').forEach(chevron => {
+        chevron.classList.add('collapsed');
+    });
+ }
+ 
+ // Auto-expand if only one report
+ document.addEventListener('DOMContentLoaded', function() {
+    const reports = document.querySelectorAll('.report-container');
+    if (reports.length === 1) {
+        toggleReport(reports[0].querySelector('.report-header'));
+    }
+ });
+ </script>
+{% endblock %}

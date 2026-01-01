@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .status-container {
+        min-height: 60vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .status-icon {
+        font-size: 4rem;
+        margin-bottom: 2rem;
+        color: #3949ab;
+    }
+    
+    .progress-container {
+        width: 100%;
+        max-width: 500px;
+        margin-top: 2rem;
+    }
+    
+    .progress-text {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: #aaa;
+    }
+    
+    .info-box {
+        background: rgba(57, 73, 171, 0.1);
+        border-left: 4px solid #3949ab;
+        padding: 1rem;
+        margin-top: 2rem;
+        max-width: 500px;
+        text-align: left;
+    }
+</style>
+
+<div class="status-container">
+    <div class="status-icon">
+        <i class="fas fa-satellite-dish"></i>
+    </div>
+    
+    <h2 class="mb-3">Search in Progress...</h2>
+    
+    <p class="lead mb-4">
+        Your OSINT search is being processed in the background.
+    </p>
+    
+    <div class="progress-container">
+        <div class="progress" style="height: 10px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 style="width: 75%; background-color: #3949ab;"></div>
+        </div>
+        <div class="progress-text">
+            <span>Started</span>
+            <span>Processing</span>
+            <span>Finishing up</span>
+        </div>
+    </div>
+    
+    <div class="info-box">
+        <h6><i class="fas fa-info-circle"></i> What's happening?</h6>
+        <p class="mb-0 small">
+            Blackbird is checking hundreds of sites for the provided {{ search_type or 'information' }}. 
+            This page will automatically refresh and show results when complete.
+        </p>
+    </div>
+    
+    <div class="mt-4">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    
+    <p class="text-muted mt-4">
+        <small>
+            <i class="fas fa-clock"></i> 
+            Search ID: {{ timestamp }} | 
+            Started at: {{ current_time }}
+        </small>
+    </p>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Search
+        </a>
+    </div>
+</div>
+
+<script>
+// Auto-refresh the page every 3 seconds to check completion
+let refreshCount = 0;
+const maxRefreshes = 60; // 3 minutes max
+
+function checkAndRefresh() {
+    refreshCount++;
+    
+    if (refreshCount >= maxRefreshes) {
+        // Stop refreshing and show timeout message
+        document.querySelector('.lead').textContent = 'Search is taking longer than expected...';
+        document.querySelector('.progress-bar').style.width = '90%';
+        return;
+    }
+    
+    // Update progress bar (pseudo-progress)
+    const progress = 75 + (refreshCount / maxRefreshes) * 20;
+    document.querySelector('.progress-bar').style.width = Math.min(progress, 95) + '%';
+    
+    // Refresh page
+    setTimeout(function() {
+        window.location.reload();
+    }, 3000);
+}
+
+// Start the refresh cycle
+checkAndRefresh();
+</script>
+
+<!-- Add current time to context if not provided -->
+{% if not current_time %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        document.querySelector('.current-time').textContent = timeString;
+    });
+</script>
+{% endif %}
+{% endblock %}

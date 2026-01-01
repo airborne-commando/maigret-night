@@ -1,0 +1,807 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .blackbird-header {
+        background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+        padding: 3rem 1rem;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        text-align: center;
+        color: white;
+        border: 1px solid #3949ab;
+    }
+    
+    .blackbird-logo {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .blackbird-title {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    
+    .blackbird-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 1.5rem;
+    }
+    
+    .search-type-selector {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        justify-content: center;
+    }
+    
+    .search-type-btn {
+        padding: 0.75rem 1.5rem;
+        border: 2px solid #3949ab;
+        background: transparent;
+        color: #3949ab;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .search-type-btn.active {
+        background: #3949ab;
+        color: white;
+    }
+    
+    .search-section {
+        display: none;
+    }
+    
+    .search-section.active {
+        display: block;
+    }
+    
+    .stats-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #3949ab;
+        display: block;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .feature-badge {
+        display: inline-block;
+        background: #3949ab;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Category filter styles */
+    .category-filter {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #dee2e6;
+    }
+    
+    .category-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    
+    .category-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .category-item:hover {
+        border-color: #3949ab;
+    }
+    
+    .category-item.selected {
+        background: #3949ab;
+        color: white;
+        border-color: #3949ab;
+    }
+    
+    .category-item.excluded {
+        background: #ffebee;
+        color: #d32f2f;
+        border-color: #ffcdd2;
+    }
+    
+    .category-item.excluded:hover {
+        border-color: #d32f2f;
+    }
+    
+    .category-item.excluded.selected {
+        background: #d32f2f;
+        color: white;
+        border-color: #d32f2f;
+    }
+    
+    .category-icon {
+        font-size: 0.9rem;
+    }
+    
+    .filter-status {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    
+    /* Tag cloud styles */
+    .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .tag {
+        background: #e0e0e0;
+        padding: 0.25rem 0.75rem;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .tag:hover {
+        background: #d0d0d0;
+    }
+    
+    .tag.selected {
+        background: #3949ab;
+        color: white;
+    }
+    
+    /* Selected sites styles */
+    .selected-sites {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .selected-site {
+        background: #3949ab;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .remove-site {
+        cursor: pointer;
+        font-weight: bold;
+        padding-left: 0.25rem;
+    }
+    
+    .remove-site:hover {
+        opacity: 0.8;
+    }
+</style>
+
+<div class="blackbird-header">
+    <div class="blackbird-logo">🦅</div>
+    <h1 class="blackbird-title">Blackbird Web Interface</h1>
+    <p class="blackbird-subtitle">Advanced OSINT tool for username and email search across multiple platforms</p>
+    
+    <div class="search-type-selector">
+        <button class="search-type-btn active" data-type="username">🔍 Username Search</button>
+        <button class="search-type-btn" data-type="email">📧 Email Search</button>
+    </div>
+</div>
+
+<div class="stats-card">
+    <h5><i class="fas fa-chart-bar"></i> System Statistics</h5>
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-item">
+            <span class="stat-value" id="totalSites">--</span>
+            <span class="stat-label">Total Sites</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="activeJobs">0</span>
+            <span class="stat-label">Active Searches</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="completedJobs">0</span>
+            <span class="stat-label">Completed</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="emailSites">--</span>
+            <span class="stat-label">Email Sites</span>
+        </div>
+    </div>
+</div>
+
+<div class="form-container">
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <!-- Username Search Form -->
+    <form method="POST" action="{{ url_for('search') }}" class="mb-4" id="usernameForm">
+        <input type="hidden" name="search_type" value="username">
+        
+        <div class="search-section active" id="usernameSection">
+            <div class="main-search-section">
+                <div class="mb-4">
+                    <label for="usernames" class="form-label h5">
+                        <i class="fas fa-user"></i> Usernames to Search
+                    </label>
+                    <textarea class="form-control" id="usernames" name="usernames" rows="3" required
+                        placeholder="Enter one or more usernames (separated by spaces or commas)..."></textarea>
+                    <div class="form-text">
+                        Example: john_doe jane_smith admin123
+                    </div>
+                </div>
+
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label for="top_sites" class="form-label">
+                            <i class="fas fa-globe"></i> Max Sites
+                        </label>
+                        <input type="number" class="form-control" id="top_sites" name="top_sites" min="1" max="10000"
+                            value="500">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="timeout" class="form-label">
+                            <i class="fas fa-clock"></i> Timeout (s)
+                        </label>
+                        <input type="number" class="form-control" id="timeout" name="timeout" min="1" value="30">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="max_concurrent" class="form-label">
+                            <i class="fas fa-bolt"></i> Concurrent
+                        </label>
+                        <input type="number" class="form-control" id="max_concurrent" name="max_concurrent" min="1" max="50"
+                            value="30">
+                    </div>
+                    <div class="col-12 mt-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="all_sites" name="all_sites">
+                            <label class="form-check-label" for="all_sites">Search All Sites</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="no_nsfw" name="no_nsfw">
+                            <label class="form-check-label" for="no_nsfw">Exclude NSFW Sites</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Search Form (Hidden by default) -->
+        <div class="search-section" id="emailSection">
+            <div class="main-search-section">
+                <div class="mb-4">
+                    <label for="emails" class="form-label h5">
+                        <i class="fas fa-envelope"></i> Emails to Search
+                    </label>
+                    <textarea class="form-control" id="emails" name="emails" rows="3"
+                        placeholder="Enter one or more email addresses (separated by spaces or commas)..."></textarea>
+                    <div class="form-text">
+                        Example: john@example.com jane@company.org
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="category-filter">
+            <h5><i class="fas fa-filter"></i> Category Filter</h5>
+            <p class="text-muted mb-3">Select categories to include or exclude from search. Click once to include, twice to exclude, three times to clear.</p>
+            
+            <!-- In the category-filter section of index.html -->
+            <div class="category-list" id="categoryList">
+                <!-- Categories will be loaded dynamically -->
+                {% if categories %}
+                    {% for category in categories %}
+                    <div class="category-item" data-category="{{ category.id }}">
+                        <span class="category-icon">{{ category.icon }}</span>
+                        <span>{{ category.name }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <!-- Fallback to hardcoded categories if none loaded -->
+                    <div class="category-item" data-category="social">
+                        <span class="category-icon">💬</span>
+                        <span>Social Media</span>
+                    </div>
+                    <div class="category-item" data-category="tech">
+                        <span class="category-icon">💻</span>
+                        <span>Technology</span>
+                    </div>
+                    <div class="category-item" data-category="hobby">
+                        <span class="category-icon">🎨</span>
+                        <span>Hobbies</span>
+                    </div>
+                    <div class="category-item" data-category="business">
+                        <span class="category-icon">💼</span>
+                        <span>Business</span>
+                    </div>
+                    <div class="category-item" data-category="forum">
+                        <span class="category-icon">💬</span>
+                        <span>Forums</span>
+                    </div>
+                    <div class="category-item" data-category="gaming">
+                        <span class="category-icon">🎮</span>
+                        <span>Gaming</span>
+                    </div>
+                    <div class="category-item" data-category="shopping">
+                        <span class="category-icon">🛒</span>
+                        <span>Shopping</span>
+                    </div>
+                    <div class="category-item" data-category="news">
+                        <span class="category-icon">📰</span>
+                        <span>News</span>
+                    </div>
+                    <div class="category-item" data-category="misc">
+                        <span class="category-icon">📂</span>
+                        <span>Misc</span>
+                    </div>
+                    <div class="category-item" data-category="art">
+                        <span class="category-icon">🎨👨🏼‍🦱</span>
+                        <span>Art</span>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="filter-status" id="filterStatus">
+                <span id="includedCount">0 categories included</span>
+                <span> • </span>
+                <span id="excludedCount">0 categories excluded</span>
+            </div>
+            
+            <!-- Hidden inputs for category filters -->
+            <input type="hidden" id="includeCategories" name="include_categories" value="">
+            <input type="hidden" id="excludeCategories" name="exclude_categories" value="">
+            <input type="hidden" id="categoryFilter" name="category_filter" value="">
+        </div>
+
+        <!-- Common Options -->
+        <div class="mb-4">
+            <div class="section-header" onclick="toggleSection('filters')">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> Filters & Options</h5>
+                <span class="chevron"></span>
+            </div>
+            <div id="filters" class="section-content">
+                <div class="mb-3 site-input-container">
+                    <label for="site" class="form-label">Specific Sites (Optional)</label>
+                    <input type="text" class="form-control site-input" id="siteInput"
+                        placeholder="Type to search for sites..." list="siteOptions">
+                    <input type="hidden" id="site" name="site">
+                    <datalist id="siteOptions">
+                        {% for site in site_options %}
+                        <option value="{{ site }}">
+                        {% endfor %}
+                    </datalist>
+                    <div class="selected-sites" id="selectedSites"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Site Categories/Tags</label>
+                    <div class="tag-cloud" id="tagCloud">
+                        {% if tag_options %}
+                            {% for tag in tag_options %}
+                            <span class="tag" data-value="{{ tag }}">{{ tag }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">No tags available</span>
+                        {% endif %}
+                    </div>
+                    <select multiple class="form-control d-none" id="tags" name="tags">
+                        {% for tag in tag_options %}
+                        <option value="{{ tag }}">{{ tag }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="filter" class="form-label">Custom Filter</label>
+                    <input type="text" class="form-control" id="filter" name="filter"
+                        placeholder='E.g., "cat=social" or "name~twitter"'>
+                    <div class="form-text">
+                        Use Blackbird filter syntax: property=value, property~value, etc.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <div class="section-header" onclick="toggleSection('advanced')">
+                <h5 class="mb-0"><i class="fas fa-cogs"></i> Advanced Options</h5>
+                <span class="chevron"></span>
+            </div>
+            <div id="advanced" class="section-content">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="proxy" class="form-label">HTTP/HTTPS Proxy</label>
+                            <input type="text" class="form-control" id="proxy" name="proxy"
+                                placeholder="e.g., http://127.0.0.1:8080">
+                        </div>
+                        <div class="mb-3">
+                            <label for="tor_proxy" class="form-label">TOR Proxy</label>
+                            <input type="text" class="form-control" id="tor_proxy" name="tor_proxy"
+                                placeholder="socks5://127.0.0.1:9050">
+                        </div>
+                        <div class="mb-3">
+                            <label for="i2p_proxy" class="form-label">I2P Proxy</label>
+                            <input type="text" class="form-control" id="i2p_proxy" name="i2p_proxy"
+                                placeholder="http://127.0.0.1:4444">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="save_csv" name="save_csv" checked>
+                                <label class="form-check-label" for="save_csv">Generate CSV Report</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="save_json" name="save_json" checked>
+                                <label class="form-check-label" for="save_json">Generate JSON Report</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="save_pdf" name="save_pdf">
+                                <label class="form-check-label" for="save_pdf">Generate PDF Report</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="verbose" name="verbose">
+                                <label class="form-check-label" for="verbose">Verbose Output</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h5>Blackbird Features:</h5>
+            <div>
+                <span class="feature-badge">Multi-platform Search</span>
+                <span class="feature-badge">Async Processing</span>
+                <span class="feature-badge">Category Filtering</span>
+                <span class="feature-badge">Tag Filtering</span>
+                <span class="feature-badge">Proxy Support</span>
+                <span class="feature-badge">Multiple Export Formats</span>
+            </div>
+        </div>
+
+        <button type="submit" class="btn search-button" style="background-color: #3949ab; color: white;">
+            <i class="fas fa-search"></i> Start Blackbird Search
+        </button>
+    </form>
+</div>
+
+<script>
+    // Load stats on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        setupSearchTypeToggle();
+        setupTagCloud();
+        setupSiteSelection();
+        setupCategoryFilter();
+        
+        // Auto-refresh stats every 10 seconds
+        setInterval(loadStats, 10000);
+    });
+    
+    // Search type toggle
+    function setupSearchTypeToggle() {
+        const buttons = document.querySelectorAll('.search-type-btn');
+        const sections = {
+            'username': document.getElementById('usernameSection'),
+            'email': document.getElementById('emailSection')
+        };
+        
+        buttons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const type = this.dataset.type;
+                
+                // Update active button
+                buttons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Show/hide sections
+                Object.keys(sections).forEach(key => {
+                    if (key === type) {
+                        sections[key].classList.add('active');
+                        // Update form field requirements
+                        if (type === 'username') {
+                            document.getElementById('usernames').required = true;
+                            document.getElementById('emails').required = false;
+                        } else {
+                            document.getElementById('usernames').required = false;
+                            document.getElementById('emails').required = true;
+                        }
+                    } else {
+                        sections[key].classList.remove('active');
+                    }
+                });
+            });
+        });
+    }
+    
+    // Load statistics
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            const stats = await response.json();
+            
+            if (!stats.error) {
+                document.getElementById('totalSites').textContent = stats.username_sites || '--';
+                document.getElementById('emailSites').textContent = stats.email_sites || '--';
+                document.getElementById('activeJobs').textContent = stats.active_jobs || 0;
+                document.getElementById('completedJobs').textContent = stats.completed_jobs || 0;
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    // Setup tag cloud
+    function setupTagCloud() {
+        const tagCloud = document.getElementById('tagCloud');
+        const hiddenSelect = document.getElementById('tags');
+        
+        if (!tagCloud) return;
+        
+        // Initialize tags from server-side rendering
+        const tags = Array.from(tagCloud.querySelectorAll('.tag'));
+        
+        tags.forEach(tagElement => {
+            tagElement.addEventListener('click', function() {
+                const tagValue = this.dataset.value;
+                const isSelected = this.classList.toggle('selected');
+                
+                // Update hidden select
+                const options = Array.from(hiddenSelect.options);
+                const option = options.find(opt => opt.value === tagValue);
+                if (option) {
+                    option.selected = isSelected;
+                }
+            });
+        });
+    }
+    
+    // Setup site selection
+    function setupSiteSelection() {
+        const siteInput = document.getElementById('siteInput');
+        const hiddenInput = document.getElementById('site');
+        const selectedSitesContainer = document.getElementById('selectedSites');
+        
+        if (!siteInput || !selectedSitesContainer) return;
+        
+        let selectedSites = new Set();
+        
+        function updateHiddenInput() {
+            hiddenInput.value = Array.from(selectedSites).join(',');
+        }
+        
+        function addSite(site) {
+            if (site && !selectedSites.has(site)) {
+                selectedSites.add(site);
+                updateHiddenInput();
+                const siteElement = document.createElement('span');
+                siteElement.className = 'selected-site';
+                siteElement.innerHTML = `${site}<span class="remove-site" data-site="${site}">&times;</span>`;
+                selectedSitesContainer.appendChild(siteElement);
+            }
+        }
+        
+        function removeSite(site) {
+            selectedSites.delete(site);
+            updateHiddenInput();
+            const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
+            siteElements.forEach(el => {
+                if (el.querySelector('.remove-site').dataset.site === site) {
+                    el.remove();
+                }
+            });
+        }
+        
+        siteInput.addEventListener('change', function(e) {
+            const value = this.value.trim();
+            if (value) {
+                addSite(value);
+                this.value = '';
+            }
+        });
+        
+        selectedSitesContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-site')) {
+                removeSite(e.target.dataset.site);
+            }
+        });
+        
+        siteInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const paste = (e.clipboardData || window.clipboardData).getData('text');
+            const sites = paste.split(',').map(site => site.trim()).filter(site => site);
+            sites.forEach(addSite);
+        });
+    }
+    
+    // Setup category filter
+    function setupCategoryFilter() {
+        const categoryItems = document.querySelectorAll('.category-item');
+        const includeInput = document.getElementById('includeCategories');
+        const excludeInput = document.getElementById('excludeCategories');
+        const categoryFilterInput = document.getElementById('categoryFilter');
+        
+        // States: 0 = unselected, 1 = included, 2 = excluded
+        const categoryStates = {};
+        
+        // Initialize all categories as unselected
+        categoryItems.forEach(item => {
+            const category = item.dataset.category;
+            categoryStates[category] = 0;
+        });
+        
+        function updateCategoryFilter() {
+            const included = [];
+            const excluded = [];
+            
+            // Update UI and collect categories
+            categoryItems.forEach(item => {
+                const category = item.dataset.category;
+                const state = categoryStates[category];
+                
+                // Update UI classes
+                item.classList.remove('selected', 'excluded');
+                if (state === 1) {
+                    item.classList.add('selected');
+                    included.push(category);
+                } else if (state === 2) {
+                    item.classList.add('excluded', 'selected');
+                    excluded.push(category);
+                }
+            });
+            
+            // Update hidden inputs
+            includeInput.value = included.join(',');
+            excludeInput.value = excluded.join(',');
+            
+            // Build Blackbird filter syntax
+            let filterParts = [];
+            
+            // For INCLUDED categories: use cat=category (exact match)
+            // If multiple categories are included, we need OR logic: cat=social|tech|hobby
+            if (included.length > 0) {
+                // Blackbird uses | for OR in exact matches
+                filterParts.push(`cat=${included.join('|')}`);
+            }
+            
+            // For EXCLUDED categories: use cat!=category
+            // If multiple categories are excluded: cat!=gaming|shopping|news
+            if (excluded.length > 0) {
+                filterParts.push(`cat!=${excluded.join('|')}`);
+            }
+            
+            // Combine filters with AND (space separated in Blackbird syntax)
+            categoryFilterInput.value = filterParts.join(' ');
+            
+            // Update status display
+            document.getElementById('includedCount').textContent = `${included.length} categories included`;
+            document.getElementById('excludedCount').textContent = `${excluded.length} categories excluded`;
+            
+            console.log('Category filter built:', categoryFilterInput.value);
+        }
+        
+        // Add click handlers to category items
+        categoryItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const category = this.dataset.category;
+                
+                // Cycle through states: 0 → 1 → 2 → 0
+                categoryStates[category] = (categoryStates[category] + 1) % 3;
+                
+                updateCategoryFilter();
+            });
+        });
+        
+        // Initial update
+        updateCategoryFilter();
+    }
+    
+    // Existing toggleSection function
+    function toggleSection(sectionId) {
+        const content = document.getElementById(sectionId);
+        const header = content.previousElementSibling;
+        content.classList.toggle('show');
+        const chevron = header.querySelector('.chevron');
+        if (chevron) {
+            chevron.classList.toggle('collapsed');
+        }
+    }
+    
+// Form submission
+const form = document.getElementById('usernameForm');
+// Update the form submission handler
+form.addEventListener('submit', function(e) {
+    // Validate at least one search field is filled
+    const searchType = document.querySelector('.search-type-btn.active').dataset.type;
+    if (searchType === 'username') {
+        if (!document.getElementById('usernames').value.trim()) {
+            e.preventDefault();
+            alert('Please enter at least one username');
+            return;
+        }
+    } else {
+        if (!document.getElementById('emails').value.trim()) {
+            e.preventDefault();
+            alert('Please enter at least one email address');
+            return;
+        }
+    }
+    
+    // Combine category filter with custom filter
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const customFilter = document.getElementById('filter').value;
+    const includeCategories = document.getElementById('includeCategories').value;
+    const excludeCategories = document.getElementById('excludeCategories').value;
+    
+    // Store category data in hidden fields
+    document.getElementById('includeCategories').value = includeCategories;
+    document.getElementById('excludeCategories').value = excludeCategories;
+    
+    // Build the final filter
+    let finalFilter = '';
+    
+    if (categoryFilter) {
+        finalFilter = categoryFilter;
+    }
+    
+    if (customFilter) {
+        if (finalFilter) {
+            finalFilter += ` ${customFilter}`;
+        } else {
+            finalFilter = customFilter;
+        }
+    }
+    
+    // Update the filter field
+    document.getElementById('filter').value = finalFilter.trim();
+});
+</script>
+{% endblock %}
