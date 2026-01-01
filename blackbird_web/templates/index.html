@@ -198,8 +198,9 @@
         margin-top: 0.5rem;
     }
     
+    /* Update selected-site style for excluded sites */
     .selected-site {
-        background: #3949ab;
+        background: #dc3545 !important; /* Red color for exclusion */
         color: white;
         padding: 0.25rem 0.75rem;
         border-radius: 16px;
@@ -524,9 +525,9 @@
             </div>
             <div id="filters" class="section-content">
                 <div class="mb-3 site-input-container">
-                    <label for="site" class="form-label">Specific Sites (Optional)</label>
+                    <label for="site" class="form-label">Exclude Specific Sites (Optional)</label>
                     <input type="text" class="form-control site-input" id="siteInput"
-                        placeholder="Type to search for sites..." list="siteOptions">
+                        placeholder="Type to exclude specific sites..." list="siteOptions">
                     <input type="hidden" id="site" name="site">
                     <datalist id="siteOptions">
                         {% for site in site_options %}
@@ -557,10 +558,10 @@
                 <div class="mb-3">
                     <label for="filter" class="form-label">Custom Filter</label>
                     <input type="text" class="form-control" id="filter" name="filter"
-                        placeholder='E.g., "name~YouNow" or "cat=social and name~twitter"'>
+                        placeholder='Automatically generated from your selections'>
                     <div class="form-text">
-                        Use Blackbird filter syntax: <code>name~value</code> (contains), <code>name=value</code> (exact), 
-                        <code>cat=value</code>, <code>e_code>200</code>, etc. Use <code>and</code>/<code>or</code> for logical operations.
+                        Filter is automatically generated from your category selections and excluded sites.
+                        You can also manually edit this filter using Blackbird syntax.
                     </div>
                 </div>
             </div>
@@ -729,91 +730,119 @@
     }
 
     // Setup tag cloud
-    function setupSiteSelection() {
-        const siteInput = document.getElementById('siteInput');
-        const hiddenInput = document.getElementById('site');
-        const filterInput = document.getElementById('filter');
-        const selectedSitesContainer = document.getElementById('selectedSites');
+// Setup site selection (for EXCLUDING sites)
+function setupSiteSelection() {
+    const siteInput = document.getElementById('siteInput');
+    const hiddenInput = document.getElementById('site');
+    const filterInput = document.getElementById('filter');
+    const selectedSitesContainer = document.getElementById('selectedSites');
+    
+    if (!siteInput || !selectedSitesContainer || !filterInput) return;
+    
+    let selectedSites = new Set();
+    
+    function updateHiddenInput() {
+        hiddenInput.value = Array.from(selectedSites).join(',');
+    }
+    
+    // NEW FUNCTION: Automatically creates filter for EXCLUDED sites
+    function updateFilterFromSelections() {
+        // Get category filters
+        const includeCategories = document.getElementById('includeCategories').value;
+        const excludeCategories = document.getElementById('excludeCategories').value;
         
-        if (!siteInput || !selectedSitesContainer || !filterInput) return;
+        // Build filter parts
+        let filterParts = [];
         
-        let selectedSites = new Set();
-        
-        function updateHiddenInput() {
-            hiddenInput.value = Array.from(selectedSites).join(',');
+        // 1. Add INCLUDED categories (cat=)
+        if (includeCategories) {
+            const included = includeCategories.split(',').filter(c => c);
+            if (included.length > 0) {
+                filterParts.push(`cat=${included.join('|')}`);
+            }
         }
         
-        // NEW FUNCTION: Automatically creates filter from selected sites
-        // See about using catagories instead for easier functions....
-        // and URI's...
-        function updateFilterFromSelectedSites() {
-            if (selectedSites.size > 0) {
-                // Create name= filters for each site (EXACT MATCH)
-                const nameFilters = Array.from(selectedSites).map(site => `name=${site}`);
-                
-                // Join multiple sites with OR operator
-                if (nameFilters.length === 1) {
-                    filterInput.value = nameFilters[0];
-                } else {
-                    filterInput.value = nameFilters.join(' and ');
-                }
-                
-                console.log('Generated filter from selected sites (exact match):', filterInput.value);
+        // 2. Add EXCLUDED categories (cat!=)
+        if (excludeCategories) {
+            const excluded = excludeCategories.split(',').filter(c => c);
+            if (excluded.length > 0) {
+                filterParts.push(`cat!=${excluded.join('|')}`);
+            }
+        }
+        
+        // 3. Add EXCLUDED sites (name!=)
+        if (selectedSites.size > 0) {
+            const excludedSites = Array.from(selectedSites);
+            if (excludedSites.length === 1) {
+                filterParts.push(`name!=${excludedSites[0]}`);
             } else {
-                // Clear filter if no sites selected
-                filterInput.value = '';
+                // For multiple excluded sites, use AND operator
+                const siteExclusions = excludedSites.map(site => `name!=${site}`).join(' and ');
+                filterParts.push(siteExclusions);
             }
         }
         
-        function addSite(site) {
-            if (site && !selectedSites.has(site)) {
-                selectedSites.add(site);
-                updateHiddenInput();
-                updateFilterFromSelectedSites(); // NEW: Update the filter
-                
-                // Create visual element for selected site
-                const siteElement = document.createElement('span');
-                siteElement.className = 'selected-site';
-                siteElement.innerHTML = `${site}<span class="remove-site" data-site="${site}">&times;</span>`;
-                selectedSitesContainer.appendChild(siteElement);
-            }
+        // Combine all filter parts
+        if (filterParts.length > 0) {
+            filterInput.value = filterParts.join(' ');
+        } else {
+            filterInput.value = '';
         }
         
-        function removeSite(site) {
-            selectedSites.delete(site);
+        console.log('Generated filter from selections:', filterInput.value);
+    }
+    
+    function addSite(site) {
+        if (site && !selectedSites.has(site)) {
+            selectedSites.add(site);
             updateHiddenInput();
-            updateFilterFromSelectedSites(); // NEW: Update the filter
+            updateFilterFromSelections(); // Update the filter
             
-            // Remove visual element
-            const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
-            siteElements.forEach(el => {
-                if (el.querySelector('.remove-site').dataset.site === site) {
-                    el.remove();
-                }
-            });
+            // Create visual element for selected site
+            const siteElement = document.createElement('span');
+            siteElement.className = 'selected-site';
+            siteElement.innerHTML = `
+                <i class="fas fa-ban me-1" style="font-size: 0.8rem;"></i>
+                ${site}<span class="remove-site" data-site="${site}">&times;</span>`;
+            selectedSitesContainer.appendChild(siteElement);
         }
+    }
+    
+    function removeSite(site) {
+        selectedSites.delete(site);
+        updateHiddenInput();
+        updateFilterFromSelections(); // Update the filter
         
-        siteInput.addEventListener('change', function(e) {
-            const value = this.value.trim();
-            if (value) {
-                addSite(value);
-                this.value = '';
+        // Remove visual element
+        const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
+        siteElements.forEach(el => {
+            if (el.querySelector('.remove-site').dataset.site === site) {
+                el.remove();
             }
-        });
-        
-        selectedSitesContainer.addEventListener('click', function(e) {
-            if (e.target.classList.contains('remove-site')) {
-                removeSite(e.target.dataset.site);
-            }
-        });
-        
-        siteInput.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const paste = (e.clipboardData || window.clipboardData).getData('text');
-            const sites = paste.split(',').map(site => site.trim()).filter(site => site);
-            sites.forEach(addSite);
         });
     }
+    
+    siteInput.addEventListener('change', function(e) {
+        const value = this.value.trim();
+        if (value) {
+            addSite(value);
+            this.value = '';
+        }
+    });
+    
+    selectedSitesContainer.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-site')) {
+            removeSite(e.target.dataset.site);
+        }
+    });
+    
+    siteInput.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text');
+        const sites = paste.split(',').map(site => site.trim()).filter(site => site);
+        sites.forEach(addSite);
+    });
+}
     
 // Setup category filter - FIXED VERSION
 function setupCategoryFilter() {
@@ -825,11 +854,28 @@ function setupCategoryFilter() {
     // States: 0 = unselected, 1 = included, 2 = excluded
     const categoryStates = {};
     
-    // Initialize all categories as unselected
+    // Initialize all category states to 0 (unselected)
     categoryItems.forEach(item => {
         const category = item.dataset.category;
-        categoryStates[category] = 0;
-        item.setAttribute('data-state', '0'); // Add state attribute for debugging
+        categoryStates[category] = 0; // Initialize to 0
+    });
+    
+    // Add click handlers to category items
+    categoryItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const category = this.dataset.category;
+            
+            // Cycle through states: 0 → 1 → 2 → 0
+            const newState = (categoryStates[category] + 1) % 3;
+            categoryStates[category] = newState;
+            
+            console.log(`Category ${category} state changed to: ${newState}`);
+            
+            const finalFilter = updateCategoryFilter();
+            
+            // Debug: Log the current filter state
+            console.log('Current filter after click:', finalFilter);
+        });
     });
     
     function updateCategoryFilter() {
