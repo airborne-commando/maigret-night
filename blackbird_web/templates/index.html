@@ -487,7 +487,12 @@
                             </div>
                             <div class="form-check">
                                 <input type="checkbox" class="form-check-input" id="verbose" name="verbose">
-                                <label class="form-check-label" for="verbose">Verbose Output</label>
+                                <label class="form-check-label" for="verbose">
+                                    <i class="fas fa-bug"></i> Verbose Output
+                                    <span class="form-text d-block small text-muted">
+                                        Show detailed logging information during the search
+                                    </span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -784,6 +789,13 @@ function setupCategoryFilter() {
 const form = document.getElementById('usernameForm');
 // Form submission handler - FIXED VERSION
 form.addEventListener('submit', function(e) {
+    // Get verbose checkbox state
+    const verboseChecked = document.getElementById('verbose').checked;
+    
+    if (verboseChecked) {
+        console.log('=== VERBOSE FORM SUBMISSION DEBUG ===');
+    }
+    
     // Validate at least one search field is filled
     const searchType = document.querySelector('.search-type-btn.active').dataset.type;
     let isValid = false;
@@ -792,7 +804,10 @@ form.addEventListener('submit', function(e) {
         const usernames = document.getElementById('usernames').value.trim();
         if (usernames) {
             isValid = true;
-            console.log('Username search:', usernames);
+            if (verboseChecked) {
+                console.log('Search type:', searchType);
+                console.log('Username search:', usernames);
+            }
         } else {
             alert('Please enter at least one username');
         }
@@ -800,7 +815,10 @@ form.addEventListener('submit', function(e) {
         const emails = document.getElementById('emails').value.trim();
         if (emails) {
             isValid = true;
-            console.log('Email search:', emails);
+            if (verboseChecked) {
+                console.log('Search type:', searchType);
+                console.log('Email search:', emails);
+            }
         } else {
             alert('Please enter at least one email address');
         }
@@ -812,7 +830,11 @@ form.addEventListener('submit', function(e) {
     }
     
     // Force update of category filter before submission
-    console.log('=== Form Submission Debug ===');
+    if (verboseChecked) {
+        console.log('=== Form Submission Debug ===');
+    } else {
+        console.log('=== Form Submission Debug ===');
+    }
     
     // Get category filter values
     const includeCategories = document.getElementById('includeCategories').value;
@@ -820,10 +842,28 @@ form.addEventListener('submit', function(e) {
     const categoryFilter = document.getElementById('categoryFilter').value;
     const customFilter = document.getElementById('filter').value;
     
-    console.log('Include categories:', includeCategories);
-    console.log('Exclude categories:', excludeCategories);
-    console.log('Generated category filter:', categoryFilter);
-    console.log('Custom filter:', customFilter);
+    // Get selected tags
+    const selectedTags = Array.from(document.querySelectorAll('#tags option:selected')).map(opt => opt.value);
+    
+    if (verboseChecked) {
+        console.log('Include categories:', includeCategories);
+        console.log('Exclude categories:', excludeCategories);
+        console.log('Generated category filter:', categoryFilter);
+        console.log('Custom filter:', customFilter);
+        console.log('Selected tags:', selectedTags);
+        console.log('Verbose mode enabled:', verboseChecked);
+        
+        // Log other form values
+        console.log('Max sites:', document.getElementById('top_sites').value);
+        console.log('Timeout:', document.getElementById('timeout').value);
+        console.log('Concurrent requests:', document.getElementById('max_concurrent').value);
+        console.log('Search all sites:', document.getElementById('all_sites').checked);
+        console.log('Exclude NSFW:', document.getElementById('no_nsfw').checked);
+        console.log('Save CSV:', document.getElementById('save_csv').checked);
+        console.log('Save JSON:', document.getElementById('save_json').checked);
+        console.log('Save PDF:', document.getElementById('save_pdf').checked);
+        console.log('AI analysis:', document.getElementById('ai')?.checked || false);
+    }
     
     // Combine category filter with custom filter
     let finalFilter = '';
@@ -840,7 +880,9 @@ form.addEventListener('submit', function(e) {
         }
     }
     
-    console.log('Final combined filter:', finalFilter);
+    if (verboseChecked) {
+        console.log('Final combined filter:', finalFilter);
+    }
     
     // Update all filter-related fields
     document.getElementById('includeCategories').value = includeCategories;
@@ -848,7 +890,12 @@ form.addEventListener('submit', function(e) {
     document.getElementById('categoryFilter').value = categoryFilter;
     document.getElementById('filter').value = finalFilter;
     
-    console.log('Form fields updated. Submitting...');
+    if (verboseChecked) {
+        console.log('Form fields updated. Submitting...');
+        console.log('=== END VERBOSE DEBUG ===');
+    } else {
+        console.log('Form fields updated. Submitting...');
+    }
     
     // Allow form submission to proceed
 });

@@ -24,6 +24,7 @@ import hashlib
 import csv
 import requests
 import chardet
+import time
 
 # Apply nest_asyncio to allow nested event loops
 nest_asyncio.apply()
@@ -722,16 +723,19 @@ job_results = {}
 async def simple_fetch_results(username, config):
     """A simplified version of fetchResults for web interface"""
     try:
-        print(f"Starting fetch for username: {username}")
+        if config.verbose:
+            print(f"VERBOSE: Starting fetch for username: {username}")
         
         # Import required utils or create fallbacks
         try:
             # Try to import the actual modules
             from modules.utils.http_client import do_async_request
             from modules.utils.parse import extractMetadata, remove_duplicates
-            print("Successfully imported Blackbird utils")
+            if config.verbose:
+                print("VERBOSE: Successfully imported Blackbird utils")
         except ImportError as e:
-            print(f"Import failed, using fallbacks: {e}")
+            if config.verbose:
+                print(f"VERBOSE: Import failed, using fallbacks: {e}")
             do_async_request = create_simple_async_request()
             extractMetadata = create_simple_extract_metadata()
             remove_duplicates = simple_remove_duplicates
@@ -744,7 +748,11 @@ async def simple_fetch_results(username, config):
                     # Build URL
                     url = site["uri_check"].replace("{account}", username)
                     
-                    print(f"  Checking: {site.get('name', 'unknown')} -> {url}")
+                    if config.verbose:
+                        print(f"VERBOSE: Checking: {site.get('name', 'unknown')}")
+                        print(f"VERBOSE: URL: {url}")
+                        print(f"VERBOSE: e_string: {site.get('e_string', 'N/A')}")
+                        print(f"VERBOSE: e_code: {site.get('e_code', 'N/A')}")
                     
                     # Make request
                     response = await do_async_request(
@@ -755,6 +763,8 @@ async def simple_fetch_results(username, config):
                     )
                     
                     if response is None:
+                        if config.verbose:
+                            print(f"VERBOSE: No response for {site.get('name', 'unknown')}")
                         return {
                             "name": site.get("name", "unknown"),
                             "url": url,
@@ -772,6 +782,11 @@ async def simple_fetch_results(username, config):
                     content = response.get("content", "")
                     status_code = response.get("status_code", 0)
                     
+                    if config.verbose:
+                        print(f"VERBOSE: Status code: {status_code}, Content length: {len(content)}")
+                        print(f"VERBOSE: e_string in content: {e_string in content}")
+                        print(f"VERBOSE: Status code matches e_code: {status_code == e_code}")
+                    
                     account_found = (
                         e_string in content and 
                         (e_code == status_code or e_code == 0)
@@ -783,6 +798,11 @@ async def simple_fetch_results(username, config):
                             m_string in content or
                             (m_code == status_code and m_code != e_code)
                         )
+                        
+                        if config.verbose:
+                            print(f"VERBOSE: m_string in content: {m_string in content}")
+                            print(f"VERBOSE: Status code matches m_code: {status_code == m_code}")
+                            print(f"VERBOSE: Account not found check: {account_not_found}")
                         
                         if not account_not_found:
                             result = {
@@ -810,10 +830,15 @@ async def simple_fetch_results(username, config):
                                         metadata.sort(key=lambda x: x.get("name", ""))
                                         result["metadata"] = metadata
                             except Exception as e:
-                                print(f"Metadata extraction failed: {e}")
+                                if config.verbose:
+                                    print(f"VERBOSE: Metadata extraction failed: {e}")
                             
-                            print(f"  ✓ Found on {site.get('name', 'unknown')}")
+                            if config.verbose:
+                                print(f"VERBOSE: ✓ Found on {site.get('name', 'unknown')}")
                             return result
+                    
+                    if config.verbose:
+                        print(f"VERBOSE: ✗ NOT FOUND on {site.get('name', 'unknown')}")
                     
                     return {
                         "name": site.get("name", "unknown"),
@@ -824,7 +849,8 @@ async def simple_fetch_results(username, config):
                     }
                     
                 except Exception as e:
-                    print(f"Error checking site {site.get('name', 'unknown')}: {e}")
+                    if config.verbose:
+                        print(f"VERBOSE: Error checking site {site.get('name', 'unknown')}: {e}")
                     return {
                         "name": site.get("name", "unknown"),
                         "url": url,
@@ -834,6 +860,9 @@ async def simple_fetch_results(username, config):
                     }
             
             # Process sites concurrently
+            if config.verbose:
+                print(f"VERBOSE: Processing {len(config.username_sites)} sites with {config.max_concurrent_requests} concurrent requests")
+            
             tasks = []
             for site in config.username_sites:
                 task = asyncio.create_task(check_site(site))
@@ -842,6 +871,12 @@ async def simple_fetch_results(username, config):
             # Wait for all tasks
             results = await asyncio.gather(*tasks)
             
+            if config.verbose:
+                found = len([r for r in results if r.get("status") == "FOUND"])
+                not_found = len([r for r in results if r.get("status") == "NOT-FOUND"])
+                errors = len([r for r in results if r.get("status") == "ERROR"])
+                print(f"VERBOSE: Completed all checks. Found: {found}, Not Found: {not_found}, Errors: {errors}")
+            
             return {
                 "results": results,
                 "username": username,
@@ -849,8 +884,9 @@ async def simple_fetch_results(username, config):
             }
             
     except Exception as e:
-        print(f"Error in simple_fetch_results: {e}")
-        traceback.print_exc()
+        if config.verbose:
+            print(f"VERBOSE: Error in simple_fetch_results: {e}")
+            traceback.print_exc()
         return {"results": [], "username": username, "total_checked": 0}
 
 def parse_blackbird_filter(filter_string):
@@ -910,25 +946,32 @@ def apply_category_filters(sites, include_categories, exclude_categories):
     
     return filtered_sites
 
-# Update the search_username_blackbird function to use category filters
 async def search_username_blackbird(username, config):
     """Use Blackbird's modules to search for username"""
     try:
-        print(f"Starting Blackbird search for: {username}")
+        if config.verbose:
+            print(f"VERBOSE: Starting Blackbird search for: {username}")
+            print(f"VERBOSE: Using filter: {config.filter}")
+            print(f"VERBOSE: Include categories: {config.include_categories}")
+            print(f"VERBOSE: Exclude categories: {config.exclude_categories}")
+            start_time = time.time()
         
         # Import list operations
         try:
             from modules.whatsmyname.list_operations import readList
             from modules.utils.filter import applyFilters as blackbird_applyFilters
-            print("Successfully imported Blackbird core modules")
+            if config.verbose:
+                print("VERBOSE: Successfully imported Blackbird core modules")
             use_blackbird_modules = True
         except ImportError as e:
-            print(f"Import error: {e}, using fallback functions")
+            if config.verbose:
+                print(f"VERBOSE: Import error: {e}, using fallback functions")
             use_blackbird_modules = False
         
         # Define fallback functions
         def fallback_readList(list_type, config):
-            print(f"Fallback readList for {list_type}")
+            if config.verbose:
+                print(f"VERBOSE: Fallback readList for {list_type}")
             if list_type == "username":
                 path = config.USERNAME_LIST_PATH
             elif list_type == "metadata":
@@ -946,8 +989,12 @@ async def search_username_blackbird(username, config):
         
         def web_applyFilters(sites, config):
             """Web interface filter implementation that understands Blackbird syntax"""
-            print(f"Applying filters to {len(sites)} sites")
-            print(f"DEBUG: Filter string: '{config.filter}'")
+            if config.verbose:
+                print(f"VERBOSE: Applying filters to {len(sites)} sites")
+                print(f"VERBOSE: Filter string: '{config.filter}'")
+                print(f"VERBOSE: Include categories: {config.include_categories}")
+                print(f"VERBOSE: Exclude categories: {config.exclude_categories}")
+                print(f"VERBOSE: No NSFW: {config.no_nsfw}")
             
             # Start with all sites
             filtered_sites = sites
@@ -964,41 +1011,48 @@ async def search_username_blackbird(username, config):
                 filter_parts = config.filter.split()
                 
                 for filter_part in filter_parts:
-                    print(f"DEBUG: Processing filter part: '{filter_part}'")
+                    if config.verbose:
+                        print(f"VERBOSE: Processing filter part: '{filter_part}'")
                     
                     # Handle category filters
                     if filter_part.startswith('cat='):
                         # Include categories: cat=social|tech
                         categories = filter_part[4:].split('|')
-                        print(f"DEBUG: Including categories: {categories}")
+                        if config.verbose:
+                            print(f"VERBOSE: Including categories: {categories}")
                         
                         filtered_sites = [
                             s for s in filtered_sites 
                             if s.get('cat', '') in categories
                         ]
-                        print(f"After cat= filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After cat= filter: {len(filtered_sites)} sites")
                         
                     elif filter_part.startswith('cat!='):
                         # Exclude categories: cat!=gaming|shopping
                         categories = filter_part[5:].split('|')
-                        print(f"DEBUG: Excluding categories: {categories}")
+                        if config.verbose:
+                            print(f"VERBOSE: Excluding categories: {categories}")
                         
                         filtered_sites = [
                             s for s in filtered_sites 
                             if s.get('cat', '') not in categories
                         ]
-                        print(f"After cat!= filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After cat!= filter: {len(filtered_sites)} sites")
                         
                     elif filter_part.startswith('cat~'):
                         # Contains filter: cat~social (category contains "social")
                         search_term = filter_part[4:]
-                        print(f"DEBUG: Category contains: '{search_term}'")
+                        if config.verbose:
+                            print(f"VERBOSE: Category contains: '{search_term}'")
                         
                         filtered_sites = [
                             s for s in filtered_sites 
                             if search_term.lower() in s.get('cat', '').lower()
                         ]
-                        print(f"After cat~ filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After cat~ filter: {len(filtered_sites)} sites")
                         
                     elif '=' in filter_part and not filter_part.startswith('cat'):
                         # Other equality filters: name=twitter
@@ -1007,7 +1061,8 @@ async def search_username_blackbird(username, config):
                             s for s in filtered_sites 
                             if str(s.get(key, '')).lower() == value.lower()
                         ]
-                        print(f"After {key}= filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}= filter: {len(filtered_sites)} sites")
                         
                     elif '!=' in filter_part and not filter_part.startswith('cat'):
                         # Other inequality filters: name!=twitter
@@ -1016,7 +1071,8 @@ async def search_username_blackbird(username, config):
                             s for s in filtered_sites 
                             if str(s.get(key, '')).lower() != value.lower()
                         ]
-                        print(f"After {key}!= filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}!= filter: {len(filtered_sites)} sites")
                         
                     elif '~' in filter_part and not filter_part.startswith('cat'):
                         # Other contains filters: name~twitter
@@ -1025,7 +1081,8 @@ async def search_username_blackbird(username, config):
                             s for s in filtered_sites 
                             if value.lower() in str(s.get(key, '')).lower()
                         ]
-                        print(f"After {key}~ filter: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After {key}~ filter: {len(filtered_sites)} sites")
                         
                     else:
                         # Simple text search
@@ -1036,15 +1093,17 @@ async def search_username_blackbird(username, config):
                                 search_term in str(s.get('cat', '')).lower() or
                                 search_term in str(s.get('uri_check', '')).lower())
                         ]
-                        print(f"After text search: {len(filtered_sites)} sites")
+                        if config.verbose:
+                            print(f"VERBOSE: After text search: {len(filtered_sites)} sites")
             
-            print(f"DEBUG: Final filtered sites: {len(filtered_sites)}")
-            
-            # Log some sample sites for debugging
-            if filtered_sites:
-                print(f"DEBUG: Sample sites after filtering:")
-                for i, site in enumerate(filtered_sites[:5]):
-                    print(f"  {i+1}. {site.get('name', 'unknown')} - cat: {site.get('cat', 'unknown')}")
+            if config.verbose:
+                print(f"VERBOSE: Final filtered sites: {len(filtered_sites)}")
+                
+                # Log some sample sites for debugging
+                if filtered_sites:
+                    print(f"VERBOSE: Sample sites after filtering:")
+                    for i, site in enumerate(filtered_sites[:5]):
+                        print(f"VERBOSE:   {i+1}. {site.get('name', 'unknown')} - cat: {site.get('cat', 'unknown')}")
             
             return filtered_sites
         
@@ -1056,12 +1115,14 @@ async def search_username_blackbird(username, config):
         
         # Load site data
         data = readList_func("username", config)
-        print(f"Loaded {len(data.get('sites', []))} sites from {config.USERNAME_LIST_PATH}")
+        if config.verbose:
+            print(f"VERBOSE: Loaded {len(data.get('sites', []))} sites from {config.USERNAME_LIST_PATH}")
         
         # Apply filters - ALWAYS use web_applyFilters to ensure category filters work
         sites_to_search = data.get("sites", [])
         config.username_sites = web_applyFilters(sites_to_search, config)
-        print(f"After filtering: {len(config.username_sites)} sites")
+        if config.verbose:
+            print(f"VERBOSE: After filtering: {len(config.username_sites)} sites")
         
         # Load metadata
         metadata_data = readList_func("metadata", config)
@@ -1076,19 +1137,25 @@ async def search_username_blackbird(username, config):
             if r.get("status") == "FOUND"
         ]
         
-        print(f"Search completed. Found {len(found_accounts)} accounts")
+        if config.verbose:
+            end_time = time.time()
+            duration = end_time - start_time
+            print(f"VERBOSE: Search completed in {duration:.2f} seconds. Found {len(found_accounts)} accounts")
         
         return found_accounts
         
     except Exception as e:
-        print(f"Error in search_username_blackbird: {e}")
-        traceback.print_exc()
+        if config.verbose:
+            print(f"VERBOSE: Error in search_username_blackbird: {e}")
+            traceback.print_exc()
         return []
 
 async def search_email_blackbird(email, config):
     """Use Blackbird's actual email verification function with Live display workaround"""
     try:
-        print(f"Starting email search for: {email}")
+        if config.verbose:
+            print(f"VERBOSE: Starting email search for: {email}")
+            start_time = time.time()
         
         # Import required modules
         from modules.core.email import verifyEmail
@@ -1103,7 +1170,8 @@ async def search_email_blackbird(email, config):
         sitesToSearch = data["sites"]
         config.email_sites = applyFilters(sitesToSearch, config)
         
-        print(f"Loaded {len(config.email_sites)} email sites to check")
+        if config.verbose:
+            print(f"VERBOSE: Loaded {len(config.email_sites)} email sites to check")
         
         # We need to run the actual email verification but without the Live display
         # Let's create a simplified version of fetchResults that doesn't use Live
@@ -1141,6 +1209,9 @@ async def search_email_blackbird(email, config):
                     data = site["data"].replace("{account}", email_processed) if site["data"] else None
                     headers = site["headers"] if site["headers"] else None
                     
+                    if config.verbose and completed % 10 == 0:
+                        print(f"VERBOSE: Checking email site {completed+1}/{total_sites}: {site.get('name', 'unknown')}")
+                    
                     # Call the actual checkSite function
                     result = await checkSite(
                         site=site,
@@ -1154,10 +1225,6 @@ async def search_email_blackbird(email, config):
                     )
                     
                     completed += 1
-                    # Print progress without Live
-                    if completed % 5 == 0 or completed == total_sites:
-                        percent = int((completed / total_sites) * 100)
-                        print(f"Email check progress: {percent}% ({completed}/{total_sites})")
                     
                     return result
                 
@@ -1172,18 +1239,21 @@ async def search_email_blackbird(email, config):
                 return {"results": results, "email": email}
         
         # Run the simplified email fetch
-        print(f"Starting to check {len(config.email_sites)} email sites...")
-        start_time = time.time()
-        results = await simple_email_fetch(email, config)
-        end_time = time.time()
+        if config.verbose:
+            print(f"VERBOSE: Starting to check {len(config.email_sites)} email sites...")
         
-        print(f"Email check completed in {round(end_time - start_time, 1)} seconds")
+        results = await simple_email_fetch(email, config)
+        
+        if config.verbose:
+            end_time = time.time()
+            print(f"VERBOSE: Email check completed in {round(end_time - start_time, 1)} seconds")
         
         # Filter to only found accounts
         from modules.utils.filter import filterFoundAccounts
         found_accounts = [acc for acc in results.get('results', []) if filterFoundAccounts(acc)]
         
-        print(f"Found {len(found_accounts)} email accounts")
+        if config.verbose:
+            print(f"VERBOSE: Found {len(found_accounts)} email accounts")
         
         # Convert to the same format as username results
         formatted_results = []
@@ -1200,8 +1270,9 @@ async def search_email_blackbird(email, config):
         return formatted_results
         
     except Exception as e:
-        print(f"Error in Blackbird email search for {email}: {str(e)}")
-        traceback.print_exc()
+        if config.verbose:
+            print(f"VERBOSE: Error in Blackbird email search for {email}: {str(e)}")
+            traceback.print_exc()
         return []
 
 async def check_site_simplified(site, email_processed, session, config):
@@ -1212,10 +1283,11 @@ async def check_site_simplified(site, email_processed, session, config):
         
         url = site["uri_check"].replace("{account}", email_processed)
         
-        print(f"\n[DEBUG] Checking email site: {site.get('name', 'unknown')}")
-        print(f"[DEBUG] URL: {url}")
-        print(f"[DEBUG] e_string: {site.get('e_string', 'N/A')}")
-        print(f"[DEBUG] e_code: {site.get('e_code', 'N/A')}")
+        if config.verbose:
+            print(f"\nVERBOSE: Checking email site: {site.get('name', 'unknown')}")
+            print(f"VERBOSE: URL: {url}")
+            print(f"VERBOSE: e_string: {site.get('e_string', 'N/A')}")
+            print(f"VERBOSE: e_code: {site.get('e_code', 'N/A')}")
         
         # Make request
         response = await do_async_request(
@@ -1228,7 +1300,8 @@ async def check_site_simplified(site, email_processed, session, config):
         )
         
         if response is None:
-            print(f"[DEBUG] No response for {site.get('name', 'unknown')}")
+            if config.verbose:
+                print(f"VERBOSE: No response for {site.get('name', 'unknown')}")
             return {
                 "name": site.get("name", "unknown"),
                 "url": url,
@@ -1246,8 +1319,9 @@ async def check_site_simplified(site, email_processed, session, config):
         content = response.get("content", "")
         status_code = response.get("status_code", 0)
         
-        print(f"[DEBUG] Status code: {status_code}")
-        print(f"[DEBUG] Response length: {len(content)}")
+        if config.verbose:
+            print(f"VERBOSE: Status code: {status_code}")
+            print(f"VERBOSE: Response length: {len(content)}")
         
         # Check if e_string is in content
         account_found = (
@@ -1255,9 +1329,10 @@ async def check_site_simplified(site, email_processed, session, config):
             (e_code == status_code or e_code == 0)
         )
         
-        print(f"[DEBUG] e_string in content: {e_string in content}")
-        print(f"[DEBUG] Status code matches e_code: {status_code == e_code}")
-        print(f"[DEBUG] Account found: {account_found}")
+        if config.verbose:
+            print(f"VERBOSE: e_string in content: {e_string in content}")
+            print(f"VERBOSE: Status code matches e_code: {status_code == e_code}")
+            print(f"VERBOSE: Account found: {account_found}")
         
         if account_found:
             # Check for non-match string/code
@@ -1266,9 +1341,10 @@ async def check_site_simplified(site, email_processed, session, config):
                 (m_code == status_code and m_code != e_code)
             )
             
-            print(f"[DEBUG] m_string in content: {m_string in content}")
-            print(f"[DEBUG] Status code matches m_code: {status_code == m_code}")
-            print(f"[DEBUG] Account not found: {account_not_found}")
+            if config.verbose:
+                print(f"VERBOSE: m_string in content: {m_string in content}")
+                print(f"VERBOSE: Status code matches m_code: {status_code == m_code}")
+                print(f"VERBOSE: Account not found: {account_not_found}")
             
             if not account_not_found:
                 result = {
@@ -1279,10 +1355,12 @@ async def check_site_simplified(site, email_processed, session, config):
                     "metadata": None
                 }
                 
-                print(f"[DEBUG] ✓ FOUND account on {site.get('name', 'unknown')}")
+                if config.verbose:
+                    print(f"VERBOSE: ✓ FOUND account on {site.get('name', 'unknown')}")
                 return result
         
-        print(f"[DEBUG] ✗ NOT FOUND on {site.get('name', 'unknown')}")
+        if config.verbose:
+            print(f"VERBOSE: ✗ NOT FOUND on {site.get('name', 'unknown')}")
         return {
             "name": site.get("name", "unknown"),
             "url": response.get("url", url),
@@ -1292,7 +1370,8 @@ async def check_site_simplified(site, email_processed, session, config):
         }
         
     except Exception as e:
-        print(f"[DEBUG] Error checking email site {site.get('name', 'unknown')}: {e}")
+        if config.verbose:
+            print(f"VERBOSE: Error checking email site {site.get('name', 'unknown')}: {e}")
         return {
             "name": site.get("name", "unknown"),
             "url": url,
@@ -1336,7 +1415,8 @@ async def simple_email_search_fallback(email, config):
         
         for site in email_check_endpoints:
             try:
-                print(f"  Checking: {site['name']}")
+                if config.verbose:
+                    print(f"VERBOSE: Checking: {site['name']}")
                 
                 async with session.request(
                     method=site.get("method", "GET"),
@@ -1356,7 +1436,8 @@ async def simple_email_search_fallback(email, config):
                             "status": "FOUND",
                             "metadata": None
                         })
-                        print(f"  ✓ Found on {site['name']}")
+                        if config.verbose:
+                            print(f"VERBOSE: ✓ Found on {site['name']}")
                     else:
                         results.append({
                             "name": site["name"],
@@ -1366,7 +1447,8 @@ async def simple_email_search_fallback(email, config):
                             "metadata": None
                         })
             except Exception as e:
-                print(f"Error checking {site['name']}: {e}")
+                if config.verbose:
+                    print(f"VERBOSE: Error checking {site['name']}: {e}")
                 results.append({
                     "name": site["name"],
                     "url": site["url"],
@@ -1390,10 +1472,11 @@ def create_web_config(options):
     # Set the filter (already combined in search route)
     config.filter = options.get('filter')
     
-    # Debug the filter
-    if config.filter:
-        print(f"DEBUG: Config filter set to: '{config.filter}'")
+    # Store category filters for debugging
+    config.include_categories = options.get('include_categories', '')
+    config.exclude_categories = options.get('exclude_categories', '')
     
+    # Set other options
     config.no_nsfw = options.get('no_nsfw', False)
     config.dump = options.get('dump', False)
     config.csv = options.get('save_csv', True)
@@ -1401,22 +1484,33 @@ def create_web_config(options):
     config.pdf = options.get('save_pdf', False)
     config.ai = options.get('ai', False)
     
-    # Store category filters for debugging
-    config.include_categories = options.get('include_categories', '')
-    config.exclude_categories = options.get('exclude_categories', '')
-    
     # Add email-specific configuration
     config.email_sites = []  # Will be populated when loading email sites
     
     # Create console
     config.console = WebConsole()
     
+    if config.verbose:
+        print(f"VERBOSE: Creating config with options:")
+        print(f"  - Verbose mode: {config.verbose}")
+        print(f"  - Timeout: {config.timeout}")
+        print(f"  - Concurrent requests: {config.max_concurrent_requests}")
+        print(f"  - Filter: {config.filter}")
+        print(f"  - Include categories: {config.include_categories}")
+        print(f"  - Exclude categories: {config.exclude_categories}")
+        print(f"  - NSFW filter: {config.no_nsfw}")
+        print(f"  - Export formats: CSV={config.csv}, JSON={config.json}, PDF={config.pdf}")
+        print(f"  - Proxy: {config.proxy}")
+        print(f"  - AI analysis: {config.ai}")
+    
     return config
 
 def save_reports(found_accounts, identifier, session_folder, config, search_type="username"):
     """Save reports using Blackbird's export modules"""
     try:
-        print(f"Saving reports for {identifier} in {session_folder}")
+        if config.verbose:
+            print(f"VERBOSE: Saving reports for {identifier} in {session_folder}")
+            start_time = time.time()
         
         # Ensure the session folder exists
         os.makedirs(session_folder, exist_ok=True)
@@ -1475,9 +1569,11 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
                     json.dump(json_data, f, indent=4, ensure_ascii=False)
                 
                 reports['json_file'] = json_file
-                print(f"Saved JSON: {json_file}")
+                if config.verbose:
+                    print(f"VERBOSE: Saved JSON: {json_file}")
             except Exception as e:
-                print(f"Error saving JSON: {e}")
+                if config.verbose:
+                    print(f"VERBOSE: Error saving JSON: {e}")
         
         # Save CSV if enabled
         if config.csv and found_accounts:
@@ -1498,9 +1594,11 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
                         ])
                 
                 reports['csv_file'] = csv_file
-                print(f"Saved CSV: {csv_file}")
+                if config.verbose:
+                    print(f"VERBOSE: Saved CSV: {csv_file}")
             except Exception as e:
-                print(f"Error saving CSV: {e}")
+                if config.verbose:
+                    print(f"VERBOSE: Error saving CSV: {e}")
         
         # Save PDF if enabled
         if config.pdf and found_accounts:
@@ -1603,10 +1701,12 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
                 
                 c.save()
                 reports['pdf_file'] = pdf_file
-                print(f"Created PDF: {pdf_file}")
+                if config.verbose:
+                    print(f"VERBOSE: Created PDF: {pdf_file}")
                 
             except Exception as e:
-                print(f"Error saving PDF: {e}")
+                if config.verbose:
+                    print(f"VERBOSE: Error saving PDF: {e}")
                 reports['pdf_file'] = None
         
         # Reset config
@@ -1614,17 +1714,25 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
         config.currentEmail = None
         config.saveDirectory = None
         
+        if config.verbose:
+            end_time = time.time()
+            duration = end_time - start_time
+            print(f"VERBOSE: Reports saved in {duration:.2f} seconds")
+        
         return reports
         
     except Exception as e:
-        print(f"Error in save_reports: {str(e)}")
-        traceback.print_exc()
+        if config.verbose:
+            print(f"VERBOSE: Error in save_reports: {str(e)}")
+            traceback.print_exc()
         return {}
 
 async def process_single_search(item, search_type, config):
     """Process a single search item"""
     try:
-        print(f"Processing {search_type}: {item}")
+        if config.verbose:
+            print(f"VERBOSE: Processing {search_type}: {item}")
+            start_time = time.time()
         
         if search_type == "username":
             found_accounts = await search_username_blackbird(item, config)
@@ -1633,7 +1741,10 @@ async def process_single_search(item, search_type, config):
         else:
             return None
         
-        print(f"Found {len(found_accounts)} accounts for {item}")
+        if config.verbose:
+            end_time = time.time()
+            duration = end_time - start_time
+            print(f"VERBOSE: Found {len(found_accounts)} accounts for {item} in {duration:.2f} seconds")
         
         # Convert to display format
         claimed_profiles = []
@@ -1661,8 +1772,9 @@ async def process_single_search(item, search_type, config):
         }
         
     except Exception as e:
-        print(f"Error processing {item}: {str(e)}")
-        traceback.print_exc()
+        if config.verbose:
+            print(f"VERBOSE: Error processing {item}: {str(e)}")
+            traceback.print_exc()
         return None
 
 def create_session_folder(username, search_type):
