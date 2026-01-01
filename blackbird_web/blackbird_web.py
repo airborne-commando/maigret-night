@@ -788,10 +788,11 @@ async def search_username_blackbird(username, config):
             # Start with all sites
             filtered_sites = sites
             
-            # Apply NSFW filter
-            if config.no_nsfw:
-                filtered_sites = [s for s in filtered_sites if s.get("cat") != "xx NSFW xx"]
-                print(f"After NSFW filter: {len(filtered_sites)} sites")
+            # Remove NSFW sites by default when category is filtered out
+            # We'll handle this via category exclusion instead of separate no_nsfw flag
+            # if config.no_nsfw:
+            #     filtered_sites = [s for s in filtered_sites if s.get("cat") != "xx NSFW xx"]
+            #     print(f"After NSFW filter: {len(filtered_sites)} sites")
             
             # Always check if we have a filter string from the web interface
             if hasattr(config, 'filter') and config.filter:
@@ -1374,17 +1375,19 @@ def index():
             "shopping": "🛒",
             "social": "💬",
             "tech": "💻",
-            "video": "🎥",
-            "xx NSFW xx": "🔞"
+            "video": "🎥"
+            # "xx NSFW xx": "🔞"
         }
         
         # Create category data for template
         category_data = []
         for category in categories:
+            # Skip NSFW category entirely
+            if category == "xx NSFW xx":
+                continue
+                
             icon = category_icons.get(category, "📁")
             display_name = category
-            if category == "xx NSFW xx":
-                display_name = "NSFW"
             
             category_data.append({
                 'id': category,
