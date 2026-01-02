@@ -38,6 +38,12 @@
         max-width: 500px;
         text-align: left;
     }
+    
+    .current-time-display {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
 </style>
 
 <div class="status-container">
@@ -80,10 +86,14 @@
     <p class="text-muted mt-4">
         <small>
             <i class="fas fa-clock"></i> 
-            Search ID: {{ timestamp }} | 
-            Started at: {{ current_time }}
+            Search ID: {{ timestamp }} 
         </small>
     </p>
+    
+    <!-- 添加当前时间显示区域 -->
+    <div class="current-time-display" id="currentTime">
+        <small><i class="fas fa-clock"></i> Started at: Loading...</small>
+    </div>
     
     <div class="mt-4">
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
@@ -93,6 +103,18 @@
 </div>
 
 <script>
+// 设置当前时间
+function updateCurrentTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString();
+    document.getElementById('currentTime').innerHTML = 
+        `<small><i class="fas fa-clock"></i> Started at: ${dateString} ${timeString}</small>`;
+}
+
+// 页面加载时更新当前时间
+updateCurrentTime();
+
 // Auto-refresh the page every 3 seconds to check completion
 let refreshCount = 0;
 const maxRefreshes = 60; // 3 minutes max
@@ -120,15 +142,4 @@ function checkAndRefresh() {
 // Start the refresh cycle
 checkAndRefresh();
 </script>
-
-<!-- Add current time to context if not provided -->
-{% if not current_time %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString();
-        document.querySelector('.current-time').textContent = timeString;
-    });
-</script>
-{% endif %}
 {% endblock %}

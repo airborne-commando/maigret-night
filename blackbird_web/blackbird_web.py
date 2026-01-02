@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, send_file, flash, redirect, url_for, get_flashed_messages, jsonify
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 import json
@@ -23,6 +24,43 @@ nest_asyncio.apply()
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Configure logging
+def setup_logging():
+    log_dir = os.path.join(CURRENT_DIR, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    # File handler for all logs
+    file_handler = RotatingFileHandler(
+        os.path.join(log_dir, 'blackbird_web.log'),
+        maxBytes=10*1024*1024,  # 10 MB
+        backupCount=5
+    )
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    
+    # Get root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    return root_logger
+
+# Initialize logging
+logger = setup_logging()
 
 class BlackbirdConfig:
     def __init__(self):
@@ -354,7 +392,7 @@ def create_minimal_mocks():
     sys.modules['modules.core.email'] = mock_core.email
 
 class WebConsole:
-    def __init__(self):
+    def __init__(self, verbose=False, log_file=None):
         self.output = []
         self.is_terminal = False
         self.is_interactive = False
@@ -373,10 +411,20 @@ class WebConsole:
         self.record = False
         self._theme_stack = None
         self._log_render = None
+        self.verbose = verbose
+        self.log_file = log_file
+        self.log_entries = []
     
     def print(self, message, **kwargs):
         msg = str(message)
         self.output.append(msg)
+        
+        # Log to file if verbose mode
+        if self.verbose and self.log_file:
+            self.log_entries.append(msg)
+    
+    def get_log_content(self):
+        return "\n".join(self.log_entries)
     
     def set_live(self, live):
         pass
@@ -839,21 +887,6 @@ class FrequencyAnalyzer:
             'last_scan': self.frequency_cache.get('last_scan', 'Never'),
             'cache_fresh': self._is_cache_fresh()
         }
-    
-    def get_overall_statistics(self) -> dict:
-        if not self.frequency_cache:
-            self.scan_reports()
-        return {
-            'total_reports': self.frequency_cache.get('total_reports', 0),
-            'total_accounts': self.frequency_cache.get('total_accounts', 0),
-            'unique_usernames': len(self.frequency_cache.get('unique_usernames', [])),
-            'unique_emails': len(self.frequency_cache.get('unique_emails', [])),
-            'unique_sites': len(self.frequency_cache.get('unique_sites', [])),
-            'most_common_sites': self.get_most_common_sites(5),
-            'most_active_usernames': self.get_most_active_usernames(5),
-            'last_scan': self.frequency_cache.get('last_scan', 'Never'),
-            'cache_fresh': self._is_cache_fresh()
-        }
 
 frequency_analyzer = None
 
@@ -879,6 +912,10 @@ job_results = {}
 
 async def simple_fetch_results(username, config):
     try:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Starting fetch for {username}")
+            config.console.print(f"[VERBOSE] Checking {len(config.username_sites)} sites")
+        
         try:
             from modules.utils.http_client import do_async_request
             from modules.utils.parse import extractMetadata, remove_duplicates
@@ -893,9 +930,15 @@ async def simple_fetch_results(username, config):
             async def check_site(site):
                 try:
                     url = site["uri_check"].replace("{account}", username)
+                    
+                    if config.verbose:
+                        config.console.print(f"[VERBOSE] Checking {site.get('name')} at {url}")
+                    
                     response = await do_async_request("GET", url, session, config)
                     
                     if response is None:
+                        if config.verbose:
+                            config.console.print(f"[VERBOSE] {site.get('name')}: No response (ERROR)")
                         return {
                             "name": site.get("name", "unknown"),
                             "url": url,
@@ -924,6 +967,8 @@ async def simple_fetch_results(username, config):
                         )
                         
                         if not account_not_found:
+                            if config.verbose:
+                                config.console.print(f"[VERBOSE] {site.get('name')}: FOUND ({status_code})")
                             result = {
                                 "name": site.get("name", "unknown"),
                                 "url": response.get("url", url),
@@ -948,9 +993,13 @@ async def simple_fetch_results(username, config):
                                         metadata.sort(key=lambda x: x.get("name", ""))
                                         result["metadata"] = metadata
                             except Exception as e:
-                                pass
+                                if config.verbose:
+                                    config.console.print(f"[VERBOSE] {site.get('name')}: Metadata error - {str(e)}")
                             
                             return result
+                    
+                    if config.verbose:
+                        config.console.print(f"[VERBOSE] {site.get('name')}: NOT FOUND ({status_code})")
                     
                     return {
                         "name": site.get("name", "unknown"),
@@ -961,6 +1010,8 @@ async def simple_fetch_results(username, config):
                     }
                     
                 except Exception as e:
+                    if config.verbose:
+                        config.console.print(f"[VERBOSE] {site.get('name')}: Exception - {str(e)}")
                     return {
                         "name": site.get("name", "unknown"),
                         "url": url,
@@ -976,6 +1027,10 @@ async def simple_fetch_results(username, config):
             
             results = await asyncio.gather(*tasks)
             
+            if config.verbose:
+                found_count = len([r for r in results if r.get('status') == 'FOUND'])
+                config.console.print(f"[VERBOSE] Fetch completed: {found_count} found out of {len(results)} sites")
+            
             return {
                 "results": results,
                 "username": username,
@@ -983,6 +1038,8 @@ async def simple_fetch_results(username, config):
             }
             
     except Exception as e:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Overall fetch error: {str(e)}")
         return {"results": [], "username": username, "total_checked": 0}
 
 def web_applyFilters(sites, config):
@@ -1114,6 +1171,9 @@ def _apply_single_filter(sites, filter_part):
 
 async def search_username_blackbird(username, config):
     try:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Starting username search for: {username}")
+        
         try:
             from modules.whatsmyname.list_operations import readlist
             from modules.utils.filter import applyFilters as blackbird_applyFilters
@@ -1138,26 +1198,44 @@ async def search_username_blackbird(username, config):
                 return {"sites": []}
         
         if not use_blackbird_modules:
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Using fallback site list reading")
             data = fallback_readlist("username", config)
             sitesToSearch = data["sites"]
             filtered_sites = web_applyFilters(sitesToSearch, config)
             config.username_sites = filtered_sites
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Loaded {len(sitesToSearch)} sites, filtered to {len(filtered_sites)}")
         else:
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Using Blackbird module site list")
             data = readlist("username", config)
             sitesToSearch = data["sites"]
             config.username_sites = blackbird_applyFilters(sitesToSearch, config)
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Loaded {len(sitesToSearch)} sites, filtered to {len(config.username_sites)}")
         
         results = await simple_fetch_results(username, config)
         
         try:
             from modules.utils.filter import filterFoundAccounts
             found_accounts = [acc for acc in results.get('results', []) if filterFoundAccounts(acc)]
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Using Blackbird module account filtering")
         except ImportError:
             found_accounts = [acc for acc in results.get('results', []) if acc.get('status') == 'FOUND']
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Using fallback account filtering")
+        
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Username search completed: {len(found_accounts)} accounts found")
         
         return found_accounts
         
     except Exception as e:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Error in username search: {str(e)}")
+            config.console.print(traceback.format_exc())
         return []
 
 async def search_email_blackbird(email, config):
@@ -1259,7 +1337,24 @@ def create_web_config(options):
     config.pdf = options.get('save_pdf', False)
     config.ai = options.get('ai', False)
     config.email_sites = []
-    config.console = WebConsole()
+    
+    # Create log directory if it doesn't exist
+    log_dir = os.path.join(CURRENT_DIR, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Set up console with log file if verbose mode
+    if config.verbose:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = f"search_{timestamp}.log"
+        log_path = os.path.join(log_dir, log_filename)
+        config.console = WebConsole(verbose=True, log_file=log_path)
+        
+        # Log start of search
+        config.console.print(f"[{timestamp}] Starting search with verbose mode")
+        config.console.print(f"Search parameters: {options}")
+    else:
+        config.console = WebConsole(verbose=False)
+    
     return config
 
 def save_reports(found_accounts, identifier, session_folder, config, search_type="username"):
@@ -1311,8 +1406,11 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
                     json.dump(json_data, f, indent=4, ensure_ascii=False)
                 
                 reports['json_file'] = json_file
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Saved JSON report: {json_file}")
             except Exception as e:
-                pass
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Failed to save JSON: {e}")
         
         if config.csv and found_accounts:
             try:
@@ -1331,8 +1429,34 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
                         ])
                 
                 reports['csv_file'] = csv_file
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Saved CSV report: {csv_file}")
             except Exception as e:
-                pass
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Failed to save CSV: {e}")
+        
+        # Save log file if verbose mode is enabled
+        if config.verbose and hasattr(config.console, 'get_log_content'):
+            try:
+                log_content = config.console.get_log_content()
+                log_file = f"{prefix}_verbose.log"
+                log_path = os.path.join(session_folder, log_file)
+                
+                with open(log_path, 'w', encoding='utf-8') as f:
+                    f.write(f"=== Blackbird Verbose Log ===\n")
+                    f.write(f"Search: {identifier}\n")
+                    f.write(f"Type: {search_type}\n")
+                    f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"Total Accounts Found: {len(found_accounts)}\n")
+                    f.write("=" * 50 + "\n\n")
+                    f.write(log_content)
+                
+                reports['log_file'] = log_file
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Saved verbose log: {log_file}")
+            except Exception as e:
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] Failed to save log file: {e}")
         
         config.currentUser = None
         config.currentEmail = None
@@ -1341,16 +1465,31 @@ def save_reports(found_accounts, identifier, session_folder, config, search_type
         return reports
         
     except Exception as e:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Error in save_reports: {e}")
         return {}
 
 async def process_single_search(item, search_type, config):
     try:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Starting search for {item} (type: {search_type})")
+            config.console.print(f"[VERBOSE] Config: filter={config.filter}, timeout={config.timeout}s")
+        
         if search_type == "username":
             found_accounts = await search_username_blackbird(item, config)
         elif search_type == "email":
             found_accounts = await search_email_blackbird(item, config)
         else:
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Invalid search type: {search_type}")
             return None
+        
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Found {len(found_accounts)} accounts for {item}")
+            for account in found_accounts[:5]:  # Log first 5 accounts
+                config.console.print(f"  - {account.get('name')}: {account.get('status')}")
+            if len(found_accounts) > 5:
+                config.console.print(f"  ... and {len(found_accounts) - 5} more")
         
         claimed_profiles = []
         for account in found_accounts:
@@ -1376,6 +1515,9 @@ async def process_single_search(item, search_type, config):
         }
         
     except Exception as e:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Error in search: {str(e)}")
+            config.console.print(traceback.format_exc())
         return None
 
 def create_session_folder(username, search_type):
@@ -1393,77 +1535,107 @@ def process_search_task(search_items, search_type, options, timestamp, enable_fr
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        tasks = []
-        for item in search_items:
-            folder_name, session_folder = create_session_folder(item, search_type)
-            config = create_web_config(options)
-            config.saveDirectory = session_folder
-            task = process_single_search(item, search_type, config)
-            tasks.append(task)
-        
-        results = loop.run_until_complete(asyncio.gather(*tasks))
         individual_reports = []
         
-        for result in results:
-            if result is None:
-                continue
+        # Process each username ONE AT A TIME
+        for item in search_items:
+            try:
+                folder_name, session_folder = create_session_folder(item, search_type)
+                config = create_web_config(options)
+                config.saveDirectory = session_folder
                 
-            item = result['item']
-            found_accounts = result['found_accounts']
-            claimed_profiles = result['claimed_profiles']
-            
-            folder_name, session_folder = create_session_folder(item, search_type)
-            os.makedirs(session_folder, exist_ok=True)
-            
-            config = create_web_config(options)
-            config.saveDirectory = session_folder
-            config.currentUser = item if search_type == "username" else None
-            config.currentEmail = item if search_type == "email" else None
-            
-            reports = save_reports(found_accounts, item, session_folder, config, search_type)
-            
-            report_data = {
-                'username': item,
-                'search_type': search_type,
-                'folder_name': folder_name,
-                'csv_file': reports.get('csv_file'),
-                'json_file': reports.get('json_file'),
-                'pdf_file': reports.get('pdf_file'),
-                'claimed_profiles': claimed_profiles,
-                'total_found': result['total_found']
-            }
-            
-            if enable_frequency and frequency_analyzer:
-                frequency_analyzer.scan_reports()
-                freq_data = frequency_analyzer.get_username_frequency(item)
+                # Process this single username
+                result = loop.run_until_complete(
+                    process_single_search(item, search_type, config)
+                )
                 
-                total_reports = frequency_analyzer.frequency_cache.get('total_reports', 1)
-                user_reports = len(freq_data.get('search_history', []))
-                frequency_percentage = (user_reports / total_reports * 100) if total_reports > 0 else 0
+                if result is None:
+                    continue
+                    
+                found_accounts = result['found_accounts']
+                claimed_profiles = result['claimed_profiles']
                 
-                common_sites = []
-                for site in freq_data.get('sites_found', []):
-                    site_freq = frequency_analyzer.get_site_frequency(site)
-                    common_sites.append({
-                        'site': site,
-                        'count': site_freq.get('total_found', 0),
-                        'username_count': site_freq.get('username_count', 0)
-                    })
+                os.makedirs(session_folder, exist_ok=True)
                 
-                common_sites.sort(key=lambda x: x['count'], reverse=True)
+                config = create_web_config(options)
+                config.saveDirectory = session_folder
+                config.currentUser = item if search_type == "username" else None
+                config.currentEmail = item if search_type == "email" else None
                 
-                report_data['frequency_data'] = {
+                reports = save_reports(found_accounts, item, session_folder, config, search_type)
+                
+                # Save log file if verbose mode was enabled
+                log_content = None
+                if config.verbose and hasattr(config.console, 'get_log_content'):
+                    log_content = config.console.get_log_content()
+                    log_file_path = os.path.join(session_folder, f"{item}_{timestamp}_verbose.log")
+                    try:
+                        with open(log_file_path, 'w', encoding='utf-8') as log_file:
+                            log_file.write(f"=== Blackbird Verbose Log ===\n")
+                            log_file.write(f"Search Item: {item}\n")
+                            log_file.write(f"Search Type: {search_type}\n")
+                            log_file.write(f"Timestamp: {timestamp}\n")
+                            log_file.write(f"Options: {options}\n")
+                            log_file.write("=" * 50 + "\n\n")
+                            log_file.write(log_content)
+                        
+                        reports['log_file'] = f"{item}_{timestamp}_verbose.log"
+                        if config.verbose:
+                            config.console.print(f"[VERBOSE] Saved detailed log file: {reports['log_file']}")
+                    except Exception as e:
+                        if config.verbose:
+                            config.console.print(f"[VERBOSE] Failed to save log file: {e}")
+                
+                report_data = {
                     'username': item,
                     'search_type': search_type,
-                    'total_occurrences': user_reports,
-                    'site_count': freq_data.get('site_count', 0),
-                    'first_seen': freq_data.get('first_seen'),
-                    'last_seen': freq_data.get('last_seen'),
-                    'common_sites': common_sites[:5],
-                    'frequency_percentage': frequency_percentage
+                    'folder_name': folder_name,
+                    'csv_file': reports.get('csv_file'),
+                    'json_file': reports.get('json_file'),
+                    'pdf_file': reports.get('pdf_file'),
+                    'log_file': reports.get('log_file'),
+                    'claimed_profiles': claimed_profiles,
+                    'total_found': result['total_found']
                 }
-            
-            individual_reports.append(report_data)
+                
+                if enable_frequency and frequency_analyzer:
+                    frequency_analyzer.scan_reports()
+                    freq_data = frequency_analyzer.get_username_frequency(item)
+                    
+                    total_reports = frequency_analyzer.frequency_cache.get('total_reports', 1)
+                    user_reports = len(freq_data.get('search_history', []))
+                    frequency_percentage = (user_reports / total_reports * 100) if total_reports > 0 else 0
+                    
+                    common_sites = []
+                    for site in freq_data.get('sites_found', []):
+                        site_freq = frequency_analyzer.get_site_frequency(site)
+                        common_sites.append({
+                            'site': site,
+                            'count': site_freq.get('total_found', 0),
+                            'username_count': site_freq.get('username_count', 0)
+                        })
+                    
+                    common_sites.sort(key=lambda x: x['count'], reverse=True)
+                    
+                    report_data['frequency_data'] = {
+                        'username': item,
+                        'search_type': search_type,
+                        'total_occurrences': user_reports,
+                        'site_count': freq_data.get('site_count', 0),
+                        'first_seen': freq_data.get('first_seen'),
+                        'last_seen': freq_data.get('last_seen'),
+                        'common_sites': common_sites[:5],
+                        'frequency_percentage': frequency_percentage
+                    }
+                
+                individual_reports.append(report_data)
+                
+                # Small delay between usernames
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.error(f"Error processing {item}: {e}")
+                continue
         
         common_sites_formatted = []
         if enable_frequency and frequency_analyzer:
@@ -1492,6 +1664,7 @@ def process_search_task(search_items, search_type, options, timestamp, enable_fr
             'status': 'failed',
             'error': str(e)
         }
+        logger.error(f"Search task failed: {e}", exc_info=True)
     finally:
         background_jobs[timestamp]['completed'] = True
 
@@ -2050,6 +2223,11 @@ def health():
 if __name__ == '__main__':
     print("Starting Blackbird Web Interface")
     
+    # Create logs directory
+    log_dir = os.path.join(CURRENT_DIR, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    print(f"Logs directory: {log_dir}")
+    
     blackbird_root = find_blackbird_root()
     
     if blackbird_root:
@@ -2064,5 +2242,8 @@ if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'True').lower() in ['true', '1', 't']
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
+    
+    print(f"Starting server on {host}:{port} (debug: {debug_mode})")
+    print(f"Reports folder: {app.config['REPORTS_FOLDER']}")
     
     app.run(host=host, port=port, debug=True)

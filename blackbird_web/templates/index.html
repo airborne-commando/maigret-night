@@ -941,9 +941,8 @@
         const tagCloud = document.getElementById('tagCloud');
         const hiddenSelect = document.getElementById('tags');
         
-        if (!tagCloud) return;
+        if (!tagCloud || !hiddenSelect) return;
         
-        // Initialize tags from server-side rendering
         const tags = Array.from(tagCloud.querySelectorAll('.tag'));
         
         tags.forEach(tagElement => {
@@ -951,13 +950,21 @@
                 const tagValue = this.dataset.value;
                 const isSelected = this.classList.toggle('selected');
                 
-                // Update hidden select
                 const options = Array.from(hiddenSelect.options);
                 const option = options.find(opt => opt.value === tagValue);
                 if (option) {
                     option.selected = isSelected;
                 }
+                
+                console.log(`Tag "${tagValue}" ${isSelected ? 'selected' : 'unselected'}`);
             });
+        });
+        
+        Array.from(hiddenSelect.selectedOptions).forEach(option => {
+            const tagElement = tagCloud.querySelector(`.tag[data-value="${option.value}"]`);
+            if (tagElement) {
+                tagElement.classList.add('selected');
+            }
         });
     }
 
@@ -1268,8 +1275,17 @@ form.addEventListener('submit', function(e) {
     const categoryFilter = document.getElementById('categoryFilter').value;
     const customFilter = document.getElementById('filter').value;
     
-    // Get selected tags
-    const selectedTags = Array.from(document.querySelectorAll('#tags option:selected')).map(opt => opt.value);
+    let selectedTags = [];
+    
+    const tagsSelect = document.getElementById('tags');
+    if (tagsSelect) {
+        selectedTags = Array.from(tagsSelect.selectedOptions).map(opt => opt.value);
+    }
+    
+    if (selectedTags.length === 0) {
+        const selectedTagElements = document.querySelectorAll('.tag.selected');
+        selectedTags = Array.from(selectedTagElements).map(el => el.dataset.value);
+    }
     
     if (verboseChecked) {
         console.log('Include categories:', includeCategories);
@@ -1315,6 +1331,19 @@ form.addEventListener('submit', function(e) {
     document.getElementById('excludeCategories').value = excludeCategories;
     document.getElementById('categoryFilter').value = categoryFilter;
     document.getElementById('filter').value = finalFilter;
+    
+    if (tagsSelect) {
+        Array.from(tagsSelect.options).forEach(option => {
+            option.selected = false;
+        });
+        
+        selectedTags.forEach(tagValue => {
+            const option = tagsSelect.querySelector(`option[value="${tagValue}"]`);
+            if (option) {
+                option.selected = true;
+            }
+        });
+    }
     
     if (verboseChecked) {
         console.log('Form fields updated. Submitting...');
