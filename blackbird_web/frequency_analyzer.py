@@ -454,6 +454,59 @@ class FrequencyAnalyzer:
             'cache_fresh': self._is_cache_fresh()
         }
 
+    def get_username_sites(self, username: str) -> dict:
+        """
+        Get all sites where a username was found
+        
+        Args:
+            username: Username to look up
+            
+        Returns:
+            Dictionary with sites and their details
+        """
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        # Check both username and email formats
+        identifiers_to_check = [f"username:{username}"]
+        if '@' in username:
+            identifiers_to_check.append(f"email:{username}")
+        
+        sites = []
+        
+        for identifier in identifiers_to_check:
+            if identifier in self.frequency_cache.get('username_site_map', {}):
+                site_list = self.frequency_cache['username_site_map'][identifier]
+                
+                # Get additional details for each site
+                for site_name in site_list:
+                    site_details = {
+                        'site_name': site_name,
+                        'found_count': self.frequency_cache.get('site_frequency', {}).get(site_name, 0),
+                        'popularity_rank': 0,
+                        'found_date': None
+                    }
+                    
+                    # Calculate popularity rank
+                    if self.frequency_cache.get('site_frequency'):
+                        sorted_sites = sorted(
+                            self.frequency_cache['site_frequency'].items(),
+                            key=lambda x: x[1],
+                            reverse=True
+                        )
+                        for rank, (site, _) in enumerate(sorted_sites, 1):
+                            if site == site_name:
+                                site_details['popularity_rank'] = rank
+                                break
+                    
+                    sites.append(site_details)
+        
+        return {
+            'username': username,
+            'sites_found': sites,
+            'total_sites': len(sites),
+            'identifier_type': 'email' if '@' in username else 'username'
+        }
 
 def main():
     """Command-line interface for frequency analyzer"""

@@ -301,6 +301,33 @@
         border-radius: 3px;
         transition: width 0.5s ease;
     }
+    /* Username lookup styles */
+    .username-lookup-section {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .username-sites-table tr:hover {
+        background-color: rgba(57, 73, 171, 0.05);
+    }
+
+    .username-sites-table th {
+        border-top: none;
+        font-weight: 600;
+        color: #3949ab;
+    }
+
+    /* Autocomplete dropdown */
+    #usernameSuggestions option {
+        padding: 8px;
+        cursor: pointer;
+    }
+
+    #usernameSuggestions option:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 
 <div class="blackbird-header">
@@ -344,6 +371,22 @@
         Check the box below to enable frequency analysis for your search.
     </div>
     
+    <div class="username-lookup-section mt-4">
+        <h6><i class="fas fa-user-check"></i> Username Site Lookup</h6>
+        <div class="input-group mb-3">
+            <input type="text" 
+                   class="form-control" 
+                   id="usernameLookup" 
+                   placeholder="Type username or email to see registered sites..."
+                   list="usernameSuggestions">
+            <button class="btn btn-outline-primary" type="button" id="lookupUsername">
+                <i class="fas fa-search"></i> Lookup
+            </button>
+        </div>
+        <datalist id="usernameSuggestions"></datalist>
+        <div id="usernameSitesResults" class="mt-3"></div>
+    </div>
+
     <div class="mb-3">
         <div class="form-check">
             <input type="checkbox" class="form-check-input" id="enable_frequency" name="enable_frequency">
@@ -641,6 +684,193 @@
 </div>
 
 <script>
+    // Username site lookup functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const usernameLookup = document.getElementById('usernameLookup');
+        const lookupButton = document.getElementById('lookupUsername');
+        const usernameSitesResults = document.getElementById('usernameSitesResults');
+        
+        // Debounce function for autocomplete
+        let debounceTimer;
+        usernameLookup.addEventListener('input', function(e) {
+            clearTimeout(debounceTimer);
+            const searchTerm = this.value.trim();
+            
+            if (searchTerm.length >= 2) {  // Start autocomplete after 2 characters
+                debounceTimer = setTimeout(() => {
+                    autocompleteUsername(searchTerm);
+                }, 300);
+            }
+        });
+        
+        // Handle Enter key
+        usernameLookup.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                lookupUsernameSites();
+            }
+        });
+        
+        // Handle button click
+        lookupButton.addEventListener('click', lookupUsernameSites);
+        
+        // Handle datalist selection
+        usernameLookup.addEventListener('change', function() {
+            lookupUsernameSites();
+        });
+    });
+
+    async function autocompleteUsername(searchTerm) {
+        try {
+            const response = await fetch(`/api/frequency/autocomplete?q=${encodeURIComponent(searchTerm)}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error('Autocomplete error:', data.error);
+                return;
+            }
+            
+            const datalist = document.getElementById('usernameSuggestions');
+            datalist.innerHTML = '';  // Clear previous options
+            
+            if (data.suggestions && data.suggestions.length > 0) {
+                data.suggestions.forEach(suggestion => {
+                    const option = document.createElement('option');
+                    option.value = suggestion.value;
+                    option.dataset.type = suggestion.type;
+                    option.dataset.siteCount = suggestion.site_count;
+                    datalist.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching autocomplete:', error);
+        }
+    }
+
+    async function lookupUsernameSites() {
+        const usernameLookup = document.getElementById('usernameLookup');
+        const username = usernameLookup.value.trim();
+        const resultsDiv = document.getElementById('usernameSitesResults');
+        
+        if (!username) {
+            resultsDiv.innerHTML = '<div class="alert alert-warning">Please enter a username or email</div>';
+            return;
+        }
+        
+        resultsDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Searching for sites registered to "${username}"...</p>
+            </div>
+        `;
+        
+        try {
+            const response = await fetch(`/api/frequency/username-sites?username=${encodeURIComponent(username)}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            
+            if (data.total_sites === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        No sites found for "${data.username}" in historical data.
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-user"></i> ${data.username}
+                                <span class="badge bg-light text-dark ms-2">${data.identifier_type}</span>
+                            </div>
+                            <span class="badge bg-success">Found on ${data.total_sites} sites</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Site Name</th>
+                                        <th>Popularity Rank</th>
+                                        <th>Times Found</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            data.sites_found.sort((a, b) => a.popularity_rank - b.popularity_rank);
+            
+            data.sites_found.forEach((site, index) => {
+                // Determine badge color based on popularity rank
+                let rankBadgeClass = 'bg-secondary';
+                if (site.popularity_rank <= 10) {
+                    rankBadgeClass = 'bg-danger';
+                } else if (site.popularity_rank <= 50) {
+                    rankBadgeClass = 'bg-warning text-dark';
+                } else if (site.popularity_rank <= 100) {
+                    rankBadgeClass = 'bg-info';
+                }
+                
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>
+                            <strong>${site.site_name}</strong>
+                        </td>
+                        <td>
+                            <span class="badge ${rankBadgeClass}">
+                                #${site.popularity_rank}
+                            </span>
+                        </td>
+                        <td>${site.found_count}</td>
+                        <td>
+                            <span class="badge bg-success">
+                                <i class="fas fa-check"></i> Registered
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Based on historical search results. Sites are ordered by popularity.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error looking up username sites:', error);
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Error looking up username sites: ${error.message}
+                </div>
+            `;
+        }
+    }
     // Load stats on page load
     document.addEventListener('DOMContentLoaded', function() {
         loadStats();

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, get_flashed_messages
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, get_flashed_messages, jsonify
 import logging
 import os
 import sys
@@ -770,6 +770,75 @@ class FrequencyAnalyzer:
         )
         
         return results
+    
+    def get_username_sites(self, username: str) -> dict:
+        """
+        Get all sites where a username was found
+        
+        Args:
+            username: Username to look up
+            
+        Returns:
+            Dictionary with sites and their details
+        """
+        if not self.frequency_cache:
+            self.scan_reports()
+        
+        # Check both username and email formats
+        identifiers_to_check = [f"username:{username}"]
+        if '@' in username:
+            identifiers_to_check.append(f"email:{username}")
+        
+        sites = []
+        
+        for identifier in identifiers_to_check:
+            if identifier in self.frequency_cache.get('username_site_map', {}):
+                site_list = self.frequency_cache['username_site_map'][identifier]
+                
+                # Get additional details for each site
+                for site_name in site_list:
+                    site_details = {
+                        'site_name': site_name,
+                        'found_count': self.frequency_cache.get('site_frequency', {}).get(site_name, 0),
+                        'popularity_rank': 0,
+                        'found_date': None
+                    }
+                    
+                    # Calculate popularity rank
+                    if self.frequency_cache.get('site_frequency'):
+                        sorted_sites = sorted(
+                            self.frequency_cache['site_frequency'].items(),
+                            key=lambda x: x[1],
+                            reverse=True
+                        )
+                        for rank, (site, _) in enumerate(sorted_sites, 1):
+                            if site == site_name:
+                                site_details['popularity_rank'] = rank
+                                break
+                    
+                    sites.append(site_details)
+        
+        return {
+            'username': username,
+            'sites_found': sites,
+            'total_sites': len(sites),
+            'identifier_type': 'email' if '@' in username else 'username'
+        }
+    
+    def get_overall_statistics(self) -> dict:
+        if not self.frequency_cache:
+            self.scan_reports()
+        return {
+            'total_reports': self.frequency_cache.get('total_reports', 0),
+            'total_accounts': self.frequency_cache.get('total_accounts', 0),
+            'unique_usernames': len(self.frequency_cache.get('unique_usernames', [])),
+            'unique_emails': len(self.frequency_cache.get('unique_emails', [])),
+            'unique_sites': len(self.frequency_cache.get('unique_sites', [])),
+            'most_common_sites': self.get_most_common_sites(5),
+            'most_active_usernames': self.get_most_active_usernames(5),
+            'last_scan': self.frequency_cache.get('last_scan', 'Never'),
+            'cache_fresh': self._is_cache_fresh()
+        }
     
     def get_overall_statistics(self) -> dict:
         if not self.frequency_cache:
@@ -1880,6 +1949,68 @@ def search_frequency_data():
         
     except Exception as e:
         return {'error': str(e), 'status': 'error'}
+
+@app.route('/api/frequency/username-sites')
+def get_username_sites():
+    """Get all sites for a specific username"""
+    username = request.args.get('username', '').strip()
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+    
+    try:
+        # Use the REPORTS_FOLDER from app config
+        results_folder = app.config["REPORTS_FOLDER"]
+        analyzer = FrequencyAnalyzer(results_folder)
+        result = analyzer.get_username_sites(username)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/frequency/autocomplete')
+def autocomplete_usernames():
+    """Autocomplete usernames based on partial input"""
+    search_term = request.args.get('q', '').strip().lower()
+    
+    if not search_term:
+        return jsonify({'suggestions': []})
+    
+    try:
+        # Use the REPORTS_FOLDER from app config
+        results_folder = app.config["REPORTS_FOLDER"]
+        analyzer = FrequencyAnalyzer(results_folder)
+        if not analyzer.frequency_cache:
+            analyzer.scan_reports()
+        
+        suggestions = []
+        
+        # Search in usernames
+        for username in analyzer.frequency_cache.get('unique_usernames', []):
+            if search_term in username.lower():
+                suggestions.append({
+                    'value': username,
+                    'type': 'username',
+                    'site_count': len(analyzer.frequency_cache.get('username_site_map', {}).get(f"username:{username}", []))
+                })
+        
+        # Search in emails
+        for email in analyzer.frequency_cache.get('unique_emails', []):
+            if search_term in email.lower():
+                suggestions.append({
+                    'value': email,
+                    'type': 'email',
+                    'site_count': len(analyzer.frequency_cache.get('username_site_map', {}).get(f"email:{email}", []))
+                })
+        
+        # Sort by relevance (exact match first, then by site count)
+        suggestions.sort(key=lambda x: (
+            0 if x['value'].lower().startswith(search_term) else 1,
+            -x['site_count']
+        ))
+        
+        return jsonify({'suggestions': suggestions[:10]})  # Limit to 10
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/frequency/username/<username>')
 def get_username_frequency(username):
