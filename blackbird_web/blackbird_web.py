@@ -920,76 +920,128 @@ def web_applyFilters(sites, config):
     if not hasattr(config, 'filter') or not config.filter:
         return sites
     
-    filtered_sites = sites
     filter_string = config.filter
-    filter_parts = filter_string.split()
     
-    for filter_part in filter_parts:
-        if filter_part.startswith('name~'):
-            search_term = filter_part[5:]
-            filtered_sites = [
-                s for s in filtered_sites 
-                if search_term.lower() in s.get('name', '').lower()
-            ]
-        elif filter_part.startswith('name='):
-            search_term = filter_part[5:]
-            filtered_sites = [
-                s for s in filtered_sites 
-                if s.get('name', '').lower() == search_term.lower()
-            ]
-        elif filter_part.startswith('name!='):
-            excluded_name = filter_part[6:]
-            excluded_name_lower = excluded_name.lower()
-            filtered_sites = [
-                s for s in filtered_sites 
-                if s.get('name', '').lower() != excluded_name_lower
-            ]
-        elif filter_part.startswith('cat='):
-            categories = filter_part[4:].split('|')
-            filtered_sites = [
-                s for s in filtered_sites 
-                if s.get('cat', '') in categories
-            ]
-        elif filter_part.startswith('cat!='):
-            categories = filter_part[5:].split('|')
-            filtered_sites = [
-                s for s in filtered_sites 
-                if s.get('cat', '') not in categories
-            ]
-        elif filter_part.startswith('cat~'):
-            search_term = filter_part[4:]
-            filtered_sites = [
-                s for s in filtered_sites 
-                if search_term.lower() in s.get('cat', '').lower()
-            ]
-        elif '=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
-            key, value = filter_part.split('=', 1)
-            filtered_sites = [
-                s for s in filtered_sites 
-                if str(s.get(key, '')).lower() == value.lower()
-            ]
-        elif '!=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
-            key, value = filter_part.split('!=', 1)
-            filtered_sites = [
-                s for s in filtered_sites 
-                if str(s.get(key, '')).lower() != value.lower()
-            ]
-        elif '~' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
-            key, value = filter_part.split('~', 1)
-            filtered_sites = [
-                s for s in filtered_sites 
-                if value.lower() in str(s.get(key, '')).lower()
-            ]
-        else:
-            search_term = filter_part.lower()
-            filtered_sites = [
-                s for s in filtered_sites 
-                if (search_term in str(s.get('name', '')).lower() or
-                    search_term in str(s.get('cat', '')).lower() or
-                    search_term in str(s.get('uri_check', '')).lower())
-            ]
+    # Handle "and" conditions by splitting on " and " (case-insensitive)
+    if ' and ' in filter_string.lower():
+        and_parts = re.split(r'\s+and\s+', filter_string, flags=re.IGNORECASE)
+        for part in and_parts:
+            sites = _apply_single_filter(sites, part.strip())
+        return sites
     
-    return filtered_sites
+    # Handle "or" conditions by splitting on " or " (case-insensitive)
+    elif ' or ' in filter_string.lower():
+        or_parts = re.split(r'\s+or\s+', filter_string, flags=re.IGNORECASE)
+        filtered_results = []
+        for part in or_parts:
+            filtered_sites = _apply_single_filter(sites, part.strip())
+            filtered_results.extend(filtered_sites)
+        # Remove duplicates
+        seen = set()
+        unique_sites = []
+        for site in filtered_results:
+            site_id = site.get('name', '') + site.get('uri_check', '')
+            if site_id not in seen:
+                seen.add(site_id)
+                unique_sites.append(site)
+        return unique_sites
+    
+    # Single filter condition
+    else:
+        return _apply_single_filter(sites, filter_string)
+
+
+def _apply_single_filter(sites, filter_part):
+    """
+    Apply a single filter condition to sites.
+    """
+    if not filter_part:
+        return sites
+    
+    if filter_part.startswith('name!='):
+        excluded_name = filter_part[6:].strip()
+        excluded_name_lower = excluded_name.lower()
+        return [
+            s for s in sites 
+            if s.get('name', '').lower() != excluded_name_lower
+        ]
+    
+    elif filter_part.startswith('name='):
+        required_name = filter_part[5:].strip()
+        required_name_lower = required_name.lower()
+        return [
+            s for s in sites 
+            if s.get('name', '').lower() == required_name_lower
+        ]
+    
+    elif filter_part.startswith('name~'):
+        search_term = filter_part[5:].strip()
+        search_term_lower = search_term.lower()
+        return [
+            s for s in sites 
+            if search_term_lower in s.get('name', '').lower()
+        ]
+    
+    elif filter_part.startswith('cat!='):
+        excluded_categories = filter_part[5:].strip().split('|')
+        excluded_categories = [c.strip() for c in excluded_categories]
+        return [
+            s for s in sites 
+            if s.get('cat', '').strip() not in excluded_categories
+        ]
+    
+    elif filter_part.startswith('cat='):
+        required_categories = filter_part[4:].strip().split('|')
+        required_categories = [c.strip() for c in required_categories]
+        return [
+            s for s in sites 
+            if s.get('cat', '').strip() in required_categories
+        ]
+    
+    elif filter_part.startswith('cat~'):
+        search_term = filter_part[4:].strip()
+        search_term_lower = search_term.lower()
+        return [
+            s for s in sites 
+            if search_term_lower in s.get('cat', '').lower()
+        ]
+    
+    elif '!=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
+        key, value = filter_part.split('!=', 1)
+        key = key.strip()
+        value = value.strip().lower()
+        return [
+            s for s in sites 
+            if str(s.get(key, '')).lower() != value
+        ]
+    
+    elif '=' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
+        key, value = filter_part.split('=', 1)
+        key = key.strip()
+        value = value.strip().lower()
+        return [
+            s for s in sites 
+            if str(s.get(key, '')).lower() == value
+        ]
+    
+    elif '~' in filter_part and not (filter_part.startswith('cat') or filter_part.startswith('name')):
+        key, value = filter_part.split('~', 1)
+        key = key.strip()
+        value = value.strip().lower()
+        return [
+            s for s in sites 
+            if value in str(s.get(key, '')).lower()
+        ]
+    
+    else:
+        # Simple text search across multiple fields
+        search_term = filter_part.strip().lower()
+        return [
+            s for s in sites 
+            if (search_term in str(s.get('name', '')).lower() or
+                search_term in str(s.get('cat', '')).lower() or
+                search_term in str(s.get('uri_check', '')).lower())
+        ]
 
 async def search_username_blackbird(username, config):
     try:
@@ -1882,4 +1934,4 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '0.0.0.0')
     port = int(os.getenv('FLASK_PORT', '5000'))
     
-    app.run(host=host, port=port)
+    app.run(host=host, port=port, debug=True)
