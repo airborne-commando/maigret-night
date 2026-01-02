@@ -328,6 +328,44 @@
     #usernameSuggestions option:hover {
         background-color: #f8f9fa;
     }
+    
+    /* Settings Management Styles */
+    .settings-management {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .settings-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    
+    .settings-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border: 2px solid #3949ab;
+        background: transparent;
+        color: #3949ab;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .settings-btn:hover {
+        background: #3949ab;
+        color: white;
+    }
+    
+    .settings-file-input {
+        display: none;
+    }
 </style>
 
 <div class="blackbird-header">
@@ -359,6 +397,38 @@
         <div class="stat-item">
             <span class="stat-value" id="emailSites">--</span>
             <span class="stat-label">Email Sites</span>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Management Section -->
+<div class="settings-management">
+    <h5><i class="fas fa-cog"></i> Settings Management</h5>
+    <p class="text-muted">Save your current search settings to a JSON file or load previously saved settings.</p>
+    
+    <div class="settings-buttons">
+        <button class="settings-btn" id="saveSettingsBtn">
+            <i class="fas fa-save"></i> Save Settings
+        </button>
+        
+        <button class="settings-btn" id="loadSettingsBtn">
+            <i class="fas fa-folder-open"></i> Load Settings
+        </button>
+        
+        <input type="file" id="settingsFileInput" class="settings-file-input" accept=".json">
+        
+        <button class="settings-btn" id="resetSettingsBtn">
+            <i class="fas fa-redo"></i> Reset to Default
+        </button>
+        
+        <button class="settings-btn" id="showCurrentSettingsBtn">
+            <i class="fas fa-eye"></i> View Current Settings
+        </button>
+    </div>
+    
+    <div id="currentSettingsDisplay" class="mt-3" style="display: none;">
+        <div class="alert alert-info">
+            <pre id="currentSettingsContent" class="mb-0"></pre>
         </div>
     </div>
 </div>
@@ -630,11 +700,6 @@
                             <input type="text" class="form-control" id="tor_proxy" name="tor_proxy"
                                 placeholder="socks5://127.0.0.1:9050">
                         </div>
-                        <div class="mb-3">
-                            <label for="i2p_proxy" class="form-label">I2P Proxy</label>
-                            <input type="text" class="form-control" id="i2p_proxy" name="i2p_proxy"
-                                placeholder="http://127.0.0.1:4444">
-                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -674,6 +739,7 @@
                 <span class="feature-badge">Tag Filtering</span>
                 <span class="feature-badge">Proxy Support</span>
                 <span class="feature-badge">Multiple Export Formats</span>
+                <span class="feature-badge">Settings Save/Load</span>
             </div>
         </div>
 
@@ -684,6 +750,446 @@
 </div>
 
 <script>
+    // Settings Management Functions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup settings management buttons
+        setupSettingsManagement();
+        
+        // Load stats and other setup
+        loadStats();
+        setupSearchTypeToggle();
+        setupTagCloud();
+        setupSiteSelection();
+        setupCategoryFilter();
+        
+        // Auto-refresh stats every 10 seconds
+        setInterval(loadStats, 10000);
+    });
+    
+    function setupSettingsManagement() {
+        const saveBtn = document.getElementById('saveSettingsBtn');
+        const loadBtn = document.getElementById('loadSettingsBtn');
+        const fileInput = document.getElementById('settingsFileInput');
+        const resetBtn = document.getElementById('resetSettingsBtn');
+        const showSettingsBtn = document.getElementById('showCurrentSettingsBtn');
+        const settingsDisplay = document.getElementById('currentSettingsDisplay');
+        const settingsContent = document.getElementById('currentSettingsContent');
+        
+        // Save settings button
+        saveBtn.addEventListener('click', function() {
+            saveCurrentSettings();
+        });
+        
+        // Load settings button - trigger file input
+        loadBtn.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // File input change handler
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                loadSettingsFromFile(e.target.files[0]);
+                // Reset file input so same file can be loaded again
+                e.target.value = '';
+            }
+        });
+        
+        // Reset settings button
+        resetBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset all settings to default?')) {
+                resetToDefaultSettings();
+            }
+        });
+        
+        // Show current settings button
+        showSettingsBtn.addEventListener('click', function() {
+            const currentSettings = getCurrentSettings();
+            settingsContent.textContent = JSON.stringify(currentSettings, null, 2);
+            settingsDisplay.style.display = 'block';
+        });
+    }
+    
+    function getCurrentSettings() {
+        // Determine active search type
+        const activeSearchType = document.querySelector('.search-type-btn.active').dataset.type;
+        
+        // Get all form field values
+        const settings = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            search_type: activeSearchType,
+            usernames: document.getElementById('usernames').value,
+            emails: document.getElementById('emails').value,
+            top_sites: document.getElementById('top_sites').value,
+            timeout: document.getElementById('timeout').value,
+            max_concurrent: document.getElementById('max_concurrent').value,
+            all_sites: document.getElementById('all_sites').checked,
+            no_nsfw: document.getElementById('no_nsfw').checked,
+            include_categories: document.getElementById('includeCategories').value,
+            exclude_categories: document.getElementById('excludeCategories').value,
+            category_filter: document.getElementById('categoryFilter').value,
+            site: document.getElementById('site').value,
+            filter: document.getElementById('filter').value,
+            proxy: document.getElementById('proxy').value,
+            tor_proxy: document.getElementById('tor_proxy').value,
+            save_csv: document.getElementById('save_csv').checked,
+            save_json: document.getElementById('save_json').checked,
+            save_pdf: document.getElementById('save_pdf').checked,
+            verbose: document.getElementById('verbose').checked,
+            enable_frequency: document.getElementById('enable_frequency').checked,
+            show_common_sites: document.getElementById('show_common_sites').checked
+        };
+        
+        // Get selected tags
+        const selectedTags = Array.from(document.querySelectorAll('.tag.selected')).map(tag => tag.dataset.value);
+        settings.tags = selectedTags;
+        
+        // Get category states
+        const categoryItems = document.querySelectorAll('.category-item');
+        const categoryStates = {};
+        categoryItems.forEach(item => {
+            const category = item.dataset.category;
+            const state = parseInt(item.getAttribute('data-state') || '0');
+            categoryStates[category] = state;
+        });
+        settings.category_states = categoryStates;
+        
+        // Get excluded sites
+        const selectedSites = document.getElementById('selectedSites');
+        const excludedSites = Array.from(selectedSites.querySelectorAll('.selected-site')).map(site => {
+            return site.textContent.replace('×', '').trim();
+        });
+        settings.excluded_sites = excludedSites;
+        
+        return settings;
+    }
+    
+    function saveCurrentSettings() {
+        const settings = getCurrentSettings();
+        const settingsJson = JSON.stringify(settings, null, 2);
+        
+        // Create a blob and download link
+        const blob = new Blob([settingsJson], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        // Create filename with timestamp
+        const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const filename = `blackbird_settings_${timestamp}.json`;
+        
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show success message
+        alert(`Settings saved to ${filename}`);
+    }
+    
+    function loadSettingsFromFile(file) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            let jsonContent = e.target.result;
+            
+            // Try multiple parsing strategies
+            try {
+                // Strategy 1: Try direct parse
+                const settings = JSON.parse(jsonContent);
+                applySettings(settings);
+                alert('Settings loaded successfully!');
+                return;
+            } catch (error1) {
+                console.warn('Direct parse failed:', error1);
+            }
+            
+            try {
+                // Strategy 2: Try to fix common JSON issues
+                jsonContent = fixJsonIssues(jsonContent);
+                const settings = JSON.parse(jsonContent);
+                applySettings(settings);
+                alert('Settings loaded successfully! (JSON was automatically corrected)');
+                return;
+            } catch (error2) {
+                console.warn('Fixed parse failed:', error2);
+            }
+            
+            // If all strategies fail
+            alert('Error: Unable to parse the JSON file. Please ensure it\'s a valid Blackbird settings file.');
+        };
+        
+        reader.onerror = function() {
+            alert('Error reading the file. Please try again.');
+        };
+        
+        reader.readAsText(file);
+    }
+
+    function fixJsonIssues(jsonString) {
+        let fixed = jsonString;
+        
+        // 1. Remove trailing commas
+        fixed = fixed.replace(/,\s*}/g, '}');
+        fixed = fixed.replace(/,\s*]/g, ']');
+        
+        // 2. Replace single quotes with double quotes (carefully)
+        fixed = fixed.replace(/'([^']*)'/g, '"$1"');
+        
+        // 3. Fix unescaped quotes
+        fixed = fixed.replace(/:\s*"([^"\\]*(?:\\.[^"\\]*)*)",/g, ':"$1",');
+        
+        // 4. Remove BOM if present
+        if (fixed.charCodeAt(0) === 0xFEFF) {
+            fixed = fixed.substring(1);
+        }
+        
+        // 5. Fix JavaScript-style comments (remove them)
+        fixed = fixed.replace(/\/\/.*$/gm, '');
+        fixed = fixed.replace(/\/\*[\s\S]*?\*\//g, '');
+        
+        return fixed;
+    }
+
+    // Also add a validation function to check settings structure
+    function validateSettings(settings) {
+        const requiredFields = ['version', 'search_type'];
+        const optionalFields = [
+            'usernames', 'emails', 'top_sites', 'timeout', 'max_concurrent',
+            'all_sites', 'no_nsfw', 'include_categories', 'exclude_categories',
+            'category_filter', 'site', 'filter', 'proxy', 'tor_proxy',
+            'save_csv', 'save_json', 'save_pdf', 'verbose', 'enable_frequency',
+            'show_common_sites', 'tags', 'category_states', 'excluded_sites'
+        ];
+        
+        // Check required fields
+        for (const field of requiredFields) {
+            if (!(field in settings)) {
+                throw new Error(`Missing required field: ${field}`);
+            }
+        }
+        
+        // Check version
+        if (settings.version !== '1.0') {
+            throw new Error(`Unsupported settings version: ${settings.version}`);
+        }
+        
+        // Validate search_type
+        if (!['username', 'email'].includes(settings.search_type)) {
+            throw new Error(`Invalid search_type: ${settings.search_type}`);
+        }
+        
+        return true;
+    }
+    
+    function applySettings(settings) {
+        try {
+            // Validate settings before applying
+            validateSettings(settings);
+        } catch (validationError) {
+            throw new Error(`Invalid settings format: ${validationError.message}`);
+        }
+        
+        // Set search type
+        if (settings.search_type) {
+            const searchTypeBtns = document.querySelectorAll('.search-type-btn');
+            searchTypeBtns.forEach(btn => btn.classList.remove('active'));
+            const targetBtn = document.querySelector(`.search-type-btn[data-type="${settings.search_type}"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+                const type = targetBtn.dataset.type;
+                const sections = {
+                    'username': document.getElementById('usernameSection'),
+                    'email': document.getElementById('emailSection')
+                };
+                
+                Object.keys(sections).forEach(key => {
+                    if (key === type) {
+                        sections[key].classList.add('active');
+                        if (type === 'username') {
+                            document.getElementById('usernames').required = true;
+                            document.getElementById('emails').required = false;
+                        } else {
+                            document.getElementById('usernames').required = false;
+                            document.getElementById('emails').required = true;
+                        }
+                    } else {
+                        sections[key].classList.remove('active');
+                    }
+                });
+            }
+        }
+        
+        // Apply form field values
+        if (settings.usernames !== undefined) document.getElementById('usernames').value = settings.usernames;
+        if (settings.emails !== undefined) document.getElementById('emails').value = settings.emails;
+        if (settings.top_sites !== undefined) document.getElementById('top_sites').value = settings.top_sites;
+        if (settings.timeout !== undefined) document.getElementById('timeout').value = settings.timeout;
+        if (settings.max_concurrent !== undefined) document.getElementById('max_concurrent').value = settings.max_concurrent;
+        if (settings.all_sites !== undefined) document.getElementById('all_sites').checked = settings.all_sites;
+        if (settings.no_nsfw !== undefined) document.getElementById('no_nsfw').checked = settings.no_nsfw;
+        if (settings.include_categories !== undefined) document.getElementById('includeCategories').value = settings.include_categories;
+        if (settings.exclude_categories !== undefined) document.getElementById('excludeCategories').value = settings.exclude_categories;
+        if (settings.category_filter !== undefined) document.getElementById('categoryFilter').value = settings.category_filter;
+        if (settings.site !== undefined) document.getElementById('site').value = settings.site;
+        if (settings.filter !== undefined) document.getElementById('filter').value = settings.filter;
+        if (settings.proxy !== undefined) document.getElementById('proxy').value = settings.proxy;
+        if (settings.tor_proxy !== undefined) document.getElementById('tor_proxy').value = settings.tor_proxy;
+        if (settings.save_csv !== undefined) document.getElementById('save_csv').checked = settings.save_csv;
+        if (settings.save_json !== undefined) document.getElementById('save_json').checked = settings.save_json;
+        if (settings.save_pdf !== undefined) document.getElementById('save_pdf').checked = settings.save_pdf;
+        if (settings.verbose !== undefined) document.getElementById('verbose').checked = settings.verbose;
+        if (settings.enable_frequency !== undefined) document.getElementById('enable_frequency').checked = settings.enable_frequency;
+        if (settings.show_common_sites !== undefined) document.getElementById('show_common_sites').checked = settings.show_common_sites;
+        
+        // Apply tags
+        if (settings.tags && Array.isArray(settings.tags)) {
+            const tagElements = document.querySelectorAll('.tag');
+            tagElements.forEach(tagElement => {
+                tagElement.classList.remove('selected');
+                const tagValue = tagElement.dataset.value;
+                if (settings.tags.includes(tagValue)) {
+                    tagElement.classList.add('selected');
+                }
+            });
+            
+            // Update hidden select
+            const hiddenSelect = document.getElementById('tags');
+            if (hiddenSelect) {
+                Array.from(hiddenSelect.options).forEach(option => {
+                    option.selected = settings.tags.includes(option.value);
+                });
+            }
+        }
+        
+        // Apply category states
+        if (settings.category_states) {
+            const categoryItems = document.querySelectorAll('.category-item');
+            
+            // Update global categoryStates
+            if (window.categoryStates) {
+                Object.keys(settings.category_states).forEach(category => {
+                    window.categoryStates[category] = settings.category_states[category];
+                });
+            }
+            
+            categoryItems.forEach(item => {
+                const category = item.dataset.category;
+                const state = settings.category_states[category] || 0;
+                
+                item.classList.remove('selected', 'excluded');
+                if (state === 1) {
+                    item.classList.add('selected');
+                } else if (state === 2) {
+                    item.classList.add('excluded', 'selected');
+                }
+                
+                item.setAttribute('data-state', state.toString());
+            });
+            
+            // Update category filter using global function
+            if (window.updateCategoryFilter) {
+                window.updateCategoryFilter();
+            }
+        }
+        
+        // Apply excluded sites
+        if (settings.excluded_sites && Array.isArray(settings.excluded_sites)) {
+            const selectedSitesContainer = document.getElementById('selectedSites');
+            selectedSitesContainer.innerHTML = '';
+            
+            // Update global selectedSites
+            if (window.selectedSites) {
+                window.selectedSites.clear();
+                settings.excluded_sites.forEach(site => window.selectedSites.add(site));
+            }
+            
+            settings.excluded_sites.forEach(site => {
+                const siteElement = document.createElement('span');
+                siteElement.className = 'selected-site';
+                siteElement.innerHTML = `
+                    <i class="fas fa-ban me-1" style="font-size: 0.8rem;"></i>
+                    ${site}<span class="remove-site" data-site="${site}">&times;</span>`;
+                selectedSitesContainer.appendChild(siteElement);
+            });
+            
+            // Update hidden input
+            document.getElementById('site').value = Array.from(settings.excluded_sites).join(',');
+            
+            // Update filter using global function
+            if (window.updateFilterFromSelections) {
+                window.updateFilterFromSelections();
+            }
+        }
+        
+        // Update frequency preview visibility
+        const preview = document.getElementById('frequencyPreview');
+        preview.style.display = settings.enable_frequency ? 'block' : 'none';
+    }
+    
+    function resetToDefaultSettings() {
+        // Reset form to default values
+        document.getElementById('usernames').value = '';
+        document.getElementById('emails').value = '';
+        document.getElementById('top_sites').value = '500';
+        document.getElementById('timeout').value = '30';
+        document.getElementById('max_concurrent').value = '30';
+        document.getElementById('all_sites').checked = false;
+        document.getElementById('no_nsfw').checked = false;
+        document.getElementById('includeCategories').value = '';
+        document.getElementById('excludeCategories').value = '';
+        document.getElementById('categoryFilter').value = '';
+        document.getElementById('site').value = '';
+        document.getElementById('filter').value = '';
+        document.getElementById('proxy').value = '';
+        document.getElementById('tor_proxy').value = '';
+        document.getElementById('save_csv').checked = true;
+        document.getElementById('save_json').checked = true;
+        document.getElementById('save_pdf').checked = false;
+        document.getElementById('verbose').checked = false;
+        document.getElementById('enable_frequency').checked = false;
+        document.getElementById('show_common_sites').checked = true;
+        
+        // Reset tags
+        const tagElements = document.querySelectorAll('.tag');
+        tagElements.forEach(tagElement => {
+            tagElement.classList.remove('selected');
+        });
+        
+        // Reset category states
+        const categoryItems = document.querySelectorAll('.category-item');
+        categoryItems.forEach(item => {
+            item.classList.remove('selected', 'excluded');
+            item.setAttribute('data-state', '0');
+        });
+        
+        // Reset excluded sites
+        const selectedSitesContainer = document.getElementById('selectedSites');
+        selectedSitesContainer.innerHTML = '';
+        selectedSites = new Set();
+        document.getElementById('site').value = '';
+        
+        // Update category filter
+        updateCategoryFilter();
+        
+        // Update search type to default (username)
+        const searchTypeBtns = document.querySelectorAll('.search-type-btn');
+        searchTypeBtns.forEach(btn => btn.classList.remove('active'));
+        const usernameBtn = document.querySelector('.search-type-btn[data-type="username"]');
+        if (usernameBtn) {
+            usernameBtn.classList.add('active');
+        }
+        
+        // Hide frequency preview
+        document.getElementById('frequencyPreview').style.display = 'none';
+        
+        // Hide settings display
+        document.getElementById('currentSettingsDisplay').style.display = 'none';
+        
+        alert('Settings have been reset to default values.');
+    }
+    
     // Username site lookup functionality
     document.addEventListener('DOMContentLoaded', function() {
         const usernameLookup = document.getElementById('usernameLookup');
@@ -871,17 +1377,6 @@
             `;
         }
     }
-    // Load stats on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        loadStats();
-        setupSearchTypeToggle();
-        setupTagCloud();
-        setupSiteSelection();
-        setupCategoryFilter();
-        
-        // Auto-refresh stats every 10 seconds
-        setInterval(loadStats, 10000);
-    });
     
     // Search type toggle
     function setupSearchTypeToggle() {
@@ -970,6 +1465,7 @@
 
     // Setup tag cloud
 // Setup site selection (for EXCLUDING sites)
+// In setupSiteSelection, make updateFilterFromSelections available globally
 function setupSiteSelection() {
     const siteInput = document.getElementById('siteInput');
     const hiddenInput = document.getElementById('site');
@@ -984,8 +1480,8 @@ function setupSiteSelection() {
         hiddenInput.value = Array.from(selectedSites).join(',');
     }
     
-    // NEW FUNCTION: Automatically creates filter for EXCLUDED sites
-    function updateFilterFromSelections() {
+    // Make updateFilterFromSelections available globally
+    window.updateFilterFromSelections = function() {
         // Get category filters
         const includeCategories = document.getElementById('includeCategories').value;
         const excludeCategories = document.getElementById('excludeCategories').value;
@@ -1029,13 +1525,13 @@ function setupSiteSelection() {
         }
         
         console.log('Generated filter from selections:', filterInput.value);
-    }
+    };
     
     function addSite(site) {
         if (site && !selectedSites.has(site)) {
             selectedSites.add(site);
             updateHiddenInput();
-            updateFilterFromSelections(); // Update the filter
+            window.updateFilterFromSelections(); // Update the filter
             
             // Create visual element for selected site
             const siteElement = document.createElement('span');
@@ -1050,7 +1546,7 @@ function setupSiteSelection() {
     function removeSite(site) {
         selectedSites.delete(site);
         updateHiddenInput();
-        updateFilterFromSelections(); // Update the filter
+        window.updateFilterFromSelections(); // Update the filter
         
         // Remove visual element
         const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
@@ -1081,9 +1577,13 @@ function setupSiteSelection() {
         const sites = paste.split(',').map(site => site.trim()).filter(site => site);
         sites.forEach(addSite);
     });
+    
+    // Store selectedSites globally for use in applySettings
+    window.selectedSites = selectedSites;
 }
     
 // Setup category filter - FIXED VERSION
+// In the setupCategoryFilter function, make updateCategoryFilter available globally
 function setupCategoryFilter() {
     const categoryItems = document.querySelectorAll('.category-item');
     const includeInput = document.getElementById('includeCategories');
@@ -1099,25 +1599,8 @@ function setupCategoryFilter() {
         categoryStates[category] = 0; // Initialize to 0
     });
     
-    // Add click handlers to category items
-    categoryItems.forEach(item => {
-        item.addEventListener('click', function() {
-            const category = this.dataset.category;
-            
-            // Cycle through states: 0 → 1 → 2 → 0
-            const newState = (categoryStates[category] + 1) % 3;
-            categoryStates[category] = newState;
-            
-            console.log(`Category ${category} state changed to: ${newState}`);
-            
-            const finalFilter = updateCategoryFilter();
-            
-            // Debug: Log the current filter state
-            console.log('Current filter after click:', finalFilter);
-        });
-    });
-    
-    function updateCategoryFilter() {
+    // Make updateCategoryFilter available globally
+    window.updateCategoryFilter = function() {
         const included = [];
         const excluded = [];
         
@@ -1183,7 +1666,7 @@ function setupCategoryFilter() {
         }
         
         return finalFilter;
-    }
+    };
     
     // Add click handlers to category items
     categoryItems.forEach(item => {
@@ -1196,15 +1679,18 @@ function setupCategoryFilter() {
             
             console.log(`Category ${category} state changed to: ${newState}`);
             
-            const finalFilter = updateCategoryFilter();
+            const finalFilter = window.updateCategoryFilter();
             
             // Debug: Log the current filter state
             console.log('Current filter after click:', finalFilter);
         });
     });
     
+    // Also store categoryStates globally for use in applySettings
+    window.categoryStates = categoryStates;
+    
     // Initial update
-    updateCategoryFilter();
+    window.updateCategoryFilter();
 }
     
     // Existing toggleSection function

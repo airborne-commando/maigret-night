@@ -1873,7 +1873,7 @@ def search():
             'max_concurrent': request.form.get('max_concurrent', '30'),
             'proxy': request.form.get('proxy'),
             'tor_proxy': request.form.get('tor_proxy'),
-            'i2p_proxy': request.form.get('i2p_proxy'),
+            # 'i2p_proxy': request.form.get('i2p_proxy'),
             'all_sites': 'all_sites' in request.form,
             'no_nsfw': 'no_nsfw' in request.form,
             'dump': 'dump' in request.form,
