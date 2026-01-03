@@ -1,50 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-    .status-container {
-        min-height: 60vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-    }
-    
-    .status-icon {
-        font-size: 4rem;
-        margin-bottom: 2rem;
-        color: #3949ab;
-    }
-    
-    .progress-container {
-        width: 100%;
-        max-width: 500px;
-        margin-top: 2rem;
-    }
-    
-    .progress-text {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.5rem;
-        font-size: 0.9rem;
-        color: #aaa;
-    }
-    
-    .info-box {
-        background: rgba(57, 73, 171, 0.1);
-        border-left: 4px solid #3949ab;
-        padding: 1rem;
-        margin-top: 2rem;
-        max-width: 500px;
-        text-align: left;
-    }
-    
-    .current-time-display {
-        font-size: 0.9rem;
-        color: #666;
-        margin-top: 0.5rem;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/blackbird-theme.css') }}">
 
 <div class="status-container">
     <div class="status-icon">
