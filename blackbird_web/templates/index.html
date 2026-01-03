@@ -1116,52 +1116,68 @@ function setupSiteSelection() {
         hiddenInput.value = Array.from(selectedSites).join(',');
     }
     
-    // Make updateFilterFromSelections available globally
-    window.updateFilterFromSelections = function() {
-        // Get category filters
-        const includeCategories = document.getElementById('includeCategories').value;
-        const excludeCategories = document.getElementById('excludeCategories').value;
-        
-        // Build filter parts
-        let filterParts = [];
-        
-        // 1. Add INCLUDED categories (cat=)
-        if (includeCategories) {
-            const included = includeCategories.split(',').filter(c => c);
-            if (included.length > 0) {
+// Replace the current updateFilterFromSelections function with this updated version
+window.updateFilterFromSelections = function() {
+    // Get category filters
+    const includeCategories = document.getElementById('includeCategories').value;
+    const excludeCategories = document.getElementById('excludeCategories').value;
+    
+    // Build filter parts
+    let filterParts = [];
+    
+    // 1. Add INCLUDED categories using OR operator (|) for multiple categories
+    if (includeCategories) {
+        const included = includeCategories.split(',').filter(c => c);
+        if (included.length > 0) {
+            if (included.length === 1) {
+                filterParts.push(`cat=${included[0]}`);
+            } else {
+                // Use OR operator (|) for multiple included categories
                 filterParts.push(`cat=${included.join('|')}`);
             }
         }
-        
-        // 2. Add EXCLUDED categories (cat!=)
-        if (excludeCategories) {
-            const excluded = excludeCategories.split(',').filter(c => c);
-            if (excluded.length > 0) {
+    }
+    
+    // 2. Add EXCLUDED categories using OR operator (|) for multiple categories
+    if (excludeCategories) {
+        const excluded = excludeCategories.split(',').filter(c => c);
+        if (excluded.length > 0) {
+            if (excluded.length === 1) {
+                filterParts.push(`cat!=${excluded[0]}`);
+            } else {
+                // Use OR operator (|) for multiple excluded categories
                 filterParts.push(`cat!=${excluded.join('|')}`);
             }
         }
-        
-        // 3. Add EXCLUDED sites (name!=)
-        if (selectedSites.size > 0) {
-            const excludedSites = Array.from(selectedSites);
-            if (excludedSites.length === 1) {
-                filterParts.push(`name!=${excludedSites[0]}`);
-            } else {
-                // For multiple excluded sites, use AND operator
-                const siteExclusions = excludedSites.map(site => `name!=${site}`).join(' and ');
-                filterParts.push(siteExclusions);
-            }
-        }
-        
-        // Combine all filter parts
-        if (filterParts.length > 0) {
-            filterInput.value = filterParts.join(' ');
+    }
+    
+    // 3. Add EXCLUDED sites
+    if (selectedSites.size > 0) {
+        const excludedSites = Array.from(selectedSites);
+        if (excludedSites.length === 1) {
+            filterParts.push(`name!=${excludedSites[0]}`);
         } else {
-            filterInput.value = '';
+            // For multiple excluded sites, use OR operator (|)
+            filterParts.push(`name!=${excludedSites.join('|')}`);
+        }
+    }
+    
+    // Combine all filter parts with AND operator
+    if (filterParts.length > 0) {
+        // If we have both category filters and site exclusions, use "and" operator
+        let combinedFilter = filterParts[0];
+        
+        for (let i = 1; i < filterParts.length; i++) {
+            combinedFilter += ` and ${filterParts[i]}`;
         }
         
-        console.log('Generated filter from selections:', filterInput.value);
-    };
+        filterInput.value = combinedFilter;
+    } else {
+        filterInput.value = '';
+    }
+    
+    console.log('Generated filter from selections:', filterInput.value);
+};
     
     function addSite(site) {
         if (site && !selectedSites.has(site)) {
@@ -1271,23 +1287,36 @@ function setupCategoryFilter() {
         console.log('Excluded categories:', excluded);
         
         // Build Blackbird filter syntax
+        // Update the filter building part in updateCategoryFilter function
+        // Replace the filter building section with this:
+
+        // Build Blackbird filter syntax
         let filterParts = [];
-        
-        // For INCLUDED categories: use cat=category (exact match)
+
+        // For INCLUDED categories: use cat=category1|category2 (OR operator)
         if (included.length > 0) {
-            // Use OR operator for multiple included categories
-            filterParts.push(`cat=${included.join('|')}`);
+            if (included.length === 1) {
+                filterParts.push(`cat=${included[0]}`);
+            } else {
+                // Use OR operator (|) for multiple included categories
+                filterParts.push(`cat=${included.join('|')}`);
+            }
         }
-        
-        // For EXCLUDED categories: use cat!=category
+
+        // For EXCLUDED categories: use cat!=category1|category2 (OR operator)
         if (excluded.length > 0) {
-            filterParts.push(`cat!=${excluded.join('|')}`);
+            if (excluded.length === 1) {
+                filterParts.push(`cat!=${excluded[0]}`);
+            } else {
+                // Use OR operator (|) for multiple excluded categories
+                filterParts.push(`cat!=${excluded.join('|')}`);
+            }
         }
-        
+
         // Combine filters with AND (space separated in Blackbird syntax)
-        const finalFilter = filterParts.join(' ');
+        const finalFilter = filterParts.join(' and ');
         categoryFilterInput.value = finalFilter;
-        
+
         console.log('Generated filter:', finalFilter);
         
         // Update status display
@@ -1430,20 +1459,41 @@ form.addEventListener('submit', function(e) {
     }
     
     // Combine category filter with custom filter
+    // In the form submission handler, update how filters are combined:
+    // Combine category filter with custom filter
     let finalFilter = '';
-    
+
+    // Start with category filter
     if (categoryFilter) {
         finalFilter = categoryFilter;
     }
-    
+
+    // Add site exclusions from the site input
+    const siteExclusions = document.getElementById('site').value;
+    if (siteExclusions) {
+        const sites = siteExclusions.split(',').filter(s => s.trim());
+        if (sites.length > 0) {
+            const siteExclusionFilter = sites.length === 1 ? 
+                `name!=${sites[0]}` : 
+                `name!=${sites.join('|')}`;
+            
+            if (finalFilter) {
+                finalFilter += ` and ${siteExclusionFilter}`;
+            } else {
+                finalFilter = siteExclusionFilter;
+            }
+        }
+    }
+
+    // Finally, append any custom filter
     if (customFilter && customFilter.trim()) {
         if (finalFilter) {
-            finalFilter += ` ${customFilter.trim()}`;
+            finalFilter += ` and ${customFilter.trim()}`;
         } else {
             finalFilter = customFilter.trim();
         }
     }
-    
+
     if (verboseChecked) {
         console.log('Final combined filter:', finalFilter);
     }
