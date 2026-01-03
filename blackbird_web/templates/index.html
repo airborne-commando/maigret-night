@@ -1276,12 +1276,12 @@ function setupCategoryFilter() {
         // For INCLUDED categories: use cat=category (exact match)
         if (included.length > 0) {
             // Use OR operator for multiple included categories
-            filterParts.push(`cat=${included.join('|')}`);
+            filterParts.push(`cat=${included.join(' or cat=')}`);
         }
         
         // For EXCLUDED categories: use cat!=category
         if (excluded.length > 0) {
-            filterParts.push(`cat!=${excluded.join('|')}`);
+            filterParts.push(`cat!=${excluded.join(' or cat!=')}`);
         }
         
         // Combine filters with AND (space separated in Blackbird syntax)
