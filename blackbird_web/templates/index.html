@@ -65,7 +65,7 @@
         <div class="alert alert-info">
             <pre id="currentSettingsContent" class="mb-0"></pre>
         </div>
-    </div>
+</div>
 </div>
 
 <div class="frequency-analysis-card">
@@ -384,7 +384,6 @@
     </form>
 </div>
 
-<!-- JavaScript remains the same -->
 <script>
     // Settings Management Functions
     document.addEventListener('DOMContentLoaded', function() {
@@ -399,7 +398,7 @@
         setupCategoryFilter();
         
         // Auto-refresh stats every 10 seconds
-        setInterval(loadStats, 10000);
+        setInterval(loadStats, 3600000);
     });
     
     function setupSettingsManagement() {
@@ -588,7 +587,6 @@
         return fixed;
     }
 
-    // Also add a validation function to check settings structure
     function validateSettings(settings) {
         const requiredFields = ['version', 'search_type'];
         const optionalFields = [
@@ -1099,264 +1097,243 @@
         });
     }
 
-    // Setup tag cloud
-// Setup site selection (for EXCLUDING sites)
-// In setupSiteSelection, make updateFilterFromSelections available globally
-function setupSiteSelection() {
-    const siteInput = document.getElementById('siteInput');
-    const hiddenInput = document.getElementById('site');
-    const filterInput = document.getElementById('filter');
-    const selectedSitesContainer = document.getElementById('selectedSites');
-    
-    if (!siteInput || !selectedSitesContainer || !filterInput) return;
-    
-    let selectedSites = new Set();
-    
-    function updateHiddenInput() {
-        hiddenInput.value = Array.from(selectedSites).join(',');
-    }
-    
-// Replace the current updateFilterFromSelections function with this updated version
-window.updateFilterFromSelections = function() {
-    // Get category filters
-    const includeCategories = document.getElementById('includeCategories').value;
-    const excludeCategories = document.getElementById('excludeCategories').value;
-    
-    // Build filter parts
-    let filterParts = [];
-    
-    // 1. Add INCLUDED categories using OR operator (|) for multiple categories
-    if (includeCategories) {
-        const included = includeCategories.split(',').filter(c => c);
-        if (included.length > 0) {
-            if (included.length === 1) {
-                filterParts.push(`cat=${included[0]}`);
-            } else {
-                // Use OR operator (|) for multiple included categories
-                filterParts.push(`cat=${included.join('|')}`);
-            }
-        }
-    }
-    
-    // 2. Add EXCLUDED categories using OR operator (|) for multiple categories
-    if (excludeCategories) {
-        const excluded = excludeCategories.split(',').filter(c => c);
-        if (excluded.length > 0) {
-            if (excluded.length === 1) {
-                filterParts.push(`cat!=${excluded[0]}`);
-            } else {
-                // Use OR operator (|) for multiple excluded categories
-                filterParts.push(`cat!=${excluded.join('|')}`);
-            }
-        }
-    }
-    
-    // 3. Add EXCLUDED sites
-    if (selectedSites.size > 0) {
-        const excludedSites = Array.from(selectedSites);
-        if (excludedSites.length === 1) {
-            filterParts.push(`name!=${excludedSites[0]}`);
-        } else {
-            // For multiple excluded sites, use OR operator (|)
-            filterParts.push(`name!=${excludedSites.join('|')}`);
-        }
-    }
-    
-    // Combine all filter parts with AND operator
-    if (filterParts.length > 0) {
-        // If we have both category filters and site exclusions, use "and" operator
-        let combinedFilter = filterParts[0];
+    // Setup site selection (for EXCLUDING sites)
+    function setupSiteSelection() {
+        const siteInput = document.getElementById('siteInput');
+        const hiddenInput = document.getElementById('site');
+        const filterInput = document.getElementById('filter');
+        const selectedSitesContainer = document.getElementById('selectedSites');
         
-        for (let i = 1; i < filterParts.length; i++) {
-            combinedFilter += ` and ${filterParts[i]}`;
+        if (!siteInput || !selectedSitesContainer || !filterInput) return;
+        
+        let selectedSites = new Set();
+        
+        function updateHiddenInput() {
+            hiddenInput.value = Array.from(selectedSites).join(',');
         }
         
-        filterInput.value = combinedFilter;
-    } else {
-        filterInput.value = '';
-    }
-    
-    console.log('Generated filter from selections:', filterInput.value);
-};
-    
-    function addSite(site) {
-        if (site && !selectedSites.has(site)) {
-            selectedSites.add(site);
+        window.updateFilterFromSelections = function() {
+            // Get category filters
+            const includeCategories = document.getElementById('includeCategories').value;
+            const excludeCategories = document.getElementById('excludeCategories').value;
+            
+            // Build filter parts
+            let filterParts = [];
+            
+            // 1. Add INCLUDED categories using OR operator (|) for multiple categories
+            if (includeCategories) {
+                const included = includeCategories.split(',').filter(c => c);
+                if (included.length > 0) {
+                    if (included.length === 1) {
+                        filterParts.push(`cat=${included[0]}`);
+                    } else {
+                        // Use OR operator (|) for multiple included categories
+                        filterParts.push(`cat=${included.join('|')}`);
+                    }
+                }
+            }
+            
+            // 2. Add EXCLUDED categories - each as separate condition with AND
+            if (excludeCategories) {
+                const excluded = excludeCategories.split(',').filter(c => c);
+                if (excluded.length > 0) {
+                    // Create separate condition for each excluded category
+                    excluded.forEach(category => {
+                        filterParts.push(`cat!=${category}`);
+                    });
+                }
+            }
+            
+            // 3. Add EXCLUDED sites - each as separate condition with AND
+            if (selectedSites.size > 0) {
+                const excludedSites = Array.from(selectedSites);
+                // Create separate condition for each excluded site
+                excludedSites.forEach(site => {
+                    filterParts.push(`name!=${site}`);
+                });
+            }
+            
+            // Combine all filter parts with AND operator
+            if (filterParts.length > 0) {
+                filterInput.value = filterParts.join(' and ');
+            } else {
+                filterInput.value = '';
+            }
+            
+            console.log('Generated filter from selections:', filterInput.value);
+        };
+        
+        function addSite(site) {
+            if (site && !selectedSites.has(site)) {
+                selectedSites.add(site);
+                updateHiddenInput();
+                window.updateFilterFromSelections(); // Update the filter
+                
+                // Create visual element for selected site
+                const siteElement = document.createElement('span');
+                siteElement.className = 'selected-site';
+                siteElement.innerHTML = `
+                    <i class="fas fa-ban me-1" style="font-size: 0.8rem;"></i>
+                    ${site}<span class="remove-site" data-site="${site}">&times;</span>`;
+                selectedSitesContainer.appendChild(siteElement);
+            }
+        }
+        
+        function removeSite(site) {
+            selectedSites.delete(site);
             updateHiddenInput();
             window.updateFilterFromSelections(); // Update the filter
             
-            // Create visual element for selected site
-            const siteElement = document.createElement('span');
-            siteElement.className = 'selected-site';
-            siteElement.innerHTML = `
-                <i class="fas fa-ban me-1" style="font-size: 0.8rem;"></i>
-                ${site}<span class="remove-site" data-site="${site}">&times;</span>`;
-            selectedSitesContainer.appendChild(siteElement);
+            // Remove visual element
+            const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
+            siteElements.forEach(el => {
+                if (el.querySelector('.remove-site').dataset.site === site) {
+                    el.remove();
+                }
+            });
         }
-    }
-    
-    function removeSite(site) {
-        selectedSites.delete(site);
-        updateHiddenInput();
-        window.updateFilterFromSelections(); // Update the filter
         
-        // Remove visual element
-        const siteElements = selectedSitesContainer.querySelectorAll('.selected-site');
-        siteElements.forEach(el => {
-            if (el.querySelector('.remove-site').dataset.site === site) {
-                el.remove();
+        siteInput.addEventListener('change', function(e) {
+            const value = this.value.trim();
+            if (value) {
+                addSite(value);
+                this.value = '';
             }
         });
+        
+        selectedSitesContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-site')) {
+                removeSite(e.target.dataset.site);
+            }
+        });
+        
+        siteInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const paste = (e.clipboardData || window.clipboardData).getData('text');
+            const sites = paste.split(',').map(site => site.trim()).filter(site => site);
+            sites.forEach(addSite);
+        });
+        
+        // Store selectedSites globally for use in applySettings
+        window.selectedSites = selectedSites;
     }
     
-    siteInput.addEventListener('change', function(e) {
-        const value = this.value.trim();
-        if (value) {
-            addSite(value);
-            this.value = '';
-        }
-    });
-    
-    selectedSitesContainer.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-site')) {
-            removeSite(e.target.dataset.site);
-        }
-    });
-    
-    siteInput.addEventListener('paste', function(e) {
-        e.preventDefault();
-        const paste = (e.clipboardData || window.clipboardData).getData('text');
-        const sites = paste.split(',').map(site => site.trim()).filter(site => site);
-        sites.forEach(addSite);
-    });
-    
-    // Store selectedSites globally for use in applySettings
-    window.selectedSites = selectedSites;
-}
-    
-// Setup category filter - FIXED VERSION
-// In the setupCategoryFilter function, make updateCategoryFilter available globally
-function setupCategoryFilter() {
-    const categoryItems = document.querySelectorAll('.category-item');
-    const includeInput = document.getElementById('includeCategories');
-    const excludeInput = document.getElementById('excludeCategories');
-    const categoryFilterInput = document.getElementById('categoryFilter');
-    
-    // States: 0 = unselected, 1 = included, 2 = excluded
-    const categoryStates = {};
-    
-    // Initialize all category states to 0 (unselected)
-    categoryItems.forEach(item => {
-        const category = item.dataset.category;
-        categoryStates[category] = 0; // Initialize to 0
-    });
-    
-    // Make updateCategoryFilter available globally
-    window.updateCategoryFilter = function() {
-        const included = [];
-        const excluded = [];
+    // Setup category filter
+    function setupCategoryFilter() {
+        const categoryItems = document.querySelectorAll('.category-item');
+        const includeInput = document.getElementById('includeCategories');
+        const excludeInput = document.getElementById('excludeCategories');
+        const categoryFilterInput = document.getElementById('categoryFilter');
         
-        console.log('Updating category filter...');
+        // States: 0 = unselected, 1 = included, 2 = excluded
+        const categoryStates = {};
         
-        // Update UI and collect categories
+        // Initialize all category states to 0 (unselected)
         categoryItems.forEach(item => {
             const category = item.dataset.category;
-            const state = categoryStates[category];
-            
-            // Update UI classes
-            item.classList.remove('selected', 'excluded');
-            if (state === 1) {
-                item.classList.add('selected');
-                included.push(category);
-                console.log(`✓ Included: ${category}`);
-            } else if (state === 2) {
-                item.classList.add('excluded', 'selected');
-                excluded.push(category);
-                console.log(`✗ Excluded: ${category}`);
-            }
-            
-            // Update data-state attribute for debugging
-            item.setAttribute('data-state', state.toString());
+            categoryStates[category] = 0; // Initialize to 0
         });
         
-        // Update hidden inputs
-        includeInput.value = included.join(',');
-        excludeInput.value = excluded.join(',');
-        
-        console.log('Included categories:', included);
-        console.log('Excluded categories:', excluded);
-        
-        // Build Blackbird filter syntax
-        // Update the filter building part in updateCategoryFilter function
-        // Replace the filter building section with this:
+        // Make updateCategoryFilter available globally
+        window.updateCategoryFilter = function() {
+            const included = [];
+            const excluded = [];
+            
+            console.log('Updating category filter...');
+            
+            // Update UI and collect categories
+            categoryItems.forEach(item => {
+                const category = item.dataset.category;
+                const state = categoryStates[category];
+                
+                // Update UI classes
+                item.classList.remove('selected', 'excluded');
+                if (state === 1) {
+                    item.classList.add('selected');
+                    included.push(category);
+                    console.log(`✓ Included: ${category}`);
+                } else if (state === 2) {
+                    item.classList.add('excluded', 'selected');
+                    excluded.push(category);
+                    console.log(`✗ Excluded: ${category}`);
+                }
+                
+                // Update data-state attribute for debugging
+                item.setAttribute('data-state', state.toString());
+            });
+            
+            // Update hidden inputs
+            includeInput.value = included.join(',');
+            excludeInput.value = excluded.join(',');
+            
+            console.log('Included categories:', included);
+            console.log('Excluded categories:', excluded);
+            
+            // Build Blackbird filter syntax
+            let filterParts = [];
 
-        // Build Blackbird filter syntax
-        let filterParts = [];
-
-        // For INCLUDED categories: use cat=category1|category2 (OR operator)
-        if (included.length > 0) {
-            if (included.length === 1) {
-                filterParts.push(`cat=${included[0]}`);
-            } else {
-                // Use OR operator (|) for multiple included categories
-                filterParts.push(`cat=${included.join('|')}`);
+            // For INCLUDED categories: use cat=category1|category2 (OR operator)
+            if (included.length > 0) {
+                if (included.length === 1) {
+                    filterParts.push(`cat=${included[0]}`);
+                } else {
+                    // Use OR operator (|) for multiple included categories
+                    filterParts.push(`cat=${included.join('|')}`);
+                }
             }
-        }
 
-        // For EXCLUDED categories: use cat!=category1|category2 (OR operator)
-        if (excluded.length > 0) {
-            if (excluded.length === 1) {
-                filterParts.push(`cat!=${excluded[0]}`);
-            } else {
-                // Use OR operator (|) for multiple excluded categories
-                filterParts.push(`cat!=${excluded.join('|')}`);
+            // For EXCLUDED categories: use separate cat!= for each with AND
+            if (excluded.length > 0) {
+                // Create separate condition for each excluded category
+                excluded.forEach(category => {
+                    filterParts.push(`cat!=${category}`);
+                });
             }
-        }
 
-        // Combine filters with AND (space separated in Blackbird syntax)
-        const finalFilter = filterParts.join(' and ');
-        categoryFilterInput.value = finalFilter;
+            // Combine filters with AND (space separated in Blackbird syntax)
+            const finalFilter = filterParts.join(' and ');
+            categoryFilterInput.value = finalFilter;
 
-        console.log('Generated filter:', finalFilter);
+            console.log('Generated filter:', finalFilter);
+            
+            // Update status display
+            const includedCount = document.getElementById('includedCount');
+            const excludedCount = document.getElementById('excludedCount');
+            
+            if (includedCount) {
+                includedCount.textContent = `${included.length} categories included`;
+            }
+            if (excludedCount) {
+                excludedCount.textContent = `${excluded.length} categories excluded`;
+            }
+            
+            return finalFilter;
+        };
         
-        // Update status display
-        const includedCount = document.getElementById('includedCount');
-        const excludedCount = document.getElementById('excludedCount');
-        
-        if (includedCount) {
-            includedCount.textContent = `${included.length} categories included`;
-        }
-        if (excludedCount) {
-            excludedCount.textContent = `${excluded.length} categories excluded`;
-        }
-        
-        return finalFilter;
-    };
-    
-    // Add click handlers to category items
-    categoryItems.forEach(item => {
-        item.addEventListener('click', function() {
-            const category = this.dataset.category;
-            
-            // Cycle through states: 0 → 1 → 2 → 0
-            const newState = (categoryStates[category] + 1) % 3;
-            categoryStates[category] = newState;
-            
-            console.log(`Category ${category} state changed to: ${newState}`);
-            
-            const finalFilter = window.updateCategoryFilter();
-            
-            // Debug: Log the current filter state
-            console.log('Current filter after click:', finalFilter);
+        // Add click handlers to category items
+        categoryItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const category = this.dataset.category;
+                
+                // Cycle through states: 0 → 1 → 2 → 0
+                const newState = (categoryStates[category] + 1) % 3;
+                categoryStates[category] = newState;
+                
+                console.log(`Category ${category} state changed to: ${newState}`);
+                
+                const finalFilter = window.updateCategoryFilter();
+                
+                // Debug: Log the current filter state
+                console.log('Current filter after click:', finalFilter);
+            });
         });
-    });
-    
-    // Also store categoryStates globally for use in applySettings
-    window.categoryStates = categoryStates;
-    
-    // Initial update
-    window.updateCategoryFilter();
-}
+        
+        // Also store categoryStates globally for use in applySettings
+        window.categoryStates = categoryStates;
+        
+        // Initial update
+        window.updateCategoryFilter();
+    }
     
     // Existing toggleSection function
     function toggleSection(sectionId) {
@@ -1369,163 +1346,162 @@ function setupCategoryFilter() {
         }
     }
     
-// Form submission
-const form = document.getElementById('usernameForm');
-// Form submission handler - FIXED VERSION
-form.addEventListener('submit', function(e) {
-    // Get verbose checkbox state
-    const verboseChecked = document.getElementById('verbose').checked;
-    
-    if (verboseChecked) {
-        console.log('=== VERBOSE FORM SUBMISSION DEBUG ===');
-    }
-    
-    // Validate at least one search field is filled
-    const searchType = document.querySelector('.search-type-btn.active').dataset.type;
-    let isValid = false;
-    
-    if (searchType === 'username') {
-        const usernames = document.getElementById('usernames').value.trim();
-        if (usernames) {
-            isValid = true;
-            if (verboseChecked) {
-                console.log('Search type:', searchType);
-                console.log('Username search:', usernames);
-            }
-        } else {
-            alert('Please enter at least one username');
-        }
-    } else {
-        const emails = document.getElementById('emails').value.trim();
-        if (emails) {
-            isValid = true;
-            if (verboseChecked) {
-                console.log('Search type:', searchType);
-                console.log('Email search:', emails);
-            }
-        } else {
-            alert('Please enter at least one email address');
-        }
-    }
-    
-    if (!isValid) {
-        e.preventDefault();
-        return;
-    }
-    
-    // Force update of category filter before submission
-    if (verboseChecked) {
-        console.log('=== Form Submission Debug ===');
-    } else {
-        console.log('=== Form Submission Debug ===');
-    }
-    
-    // Get category filter values
-    const includeCategories = document.getElementById('includeCategories').value;
-    const excludeCategories = document.getElementById('excludeCategories').value;
-    const categoryFilter = document.getElementById('categoryFilter').value;
-    const customFilter = document.getElementById('filter').value;
-    
-    let selectedTags = [];
-    
-    const tagsSelect = document.getElementById('tags');
-    if (tagsSelect) {
-        selectedTags = Array.from(tagsSelect.selectedOptions).map(opt => opt.value);
-    }
-    
-    if (selectedTags.length === 0) {
-        const selectedTagElements = document.querySelectorAll('.tag.selected');
-        selectedTags = Array.from(selectedTagElements).map(el => el.dataset.value);
-    }
-    
-    if (verboseChecked) {
-        console.log('Include categories:', includeCategories);
-        console.log('Exclude categories:', excludeCategories);
-        console.log('Generated category filter:', categoryFilter);
-        console.log('Custom filter:', customFilter);
-        console.log('Selected tags:', selectedTags);
-        console.log('Verbose mode enabled:', verboseChecked);
+    // Form submission
+    const form = document.getElementById('usernameForm');
+    // Form submission handler - FIXED VERSION
+    form.addEventListener('submit', function(e) {
+        // Get verbose checkbox state
+        const verboseChecked = document.getElementById('verbose').checked;
         
-        // Log other form values
-        console.log('Max sites:', document.getElementById('top_sites').value);
-        console.log('Timeout:', document.getElementById('timeout').value);
-        console.log('Concurrent requests:', document.getElementById('max_concurrent').value);
-        console.log('Search all sites:', document.getElementById('all_sites').checked);
-        console.log('Exclude NSFW:', document.getElementById('no_nsfw').checked);
-        console.log('Save CSV:', document.getElementById('save_csv').checked);
-        console.log('Save JSON:', document.getElementById('save_json').checked);
-        console.log('Save PDF:', document.getElementById('save_pdf').checked);
-        console.log('AI analysis:', document.getElementById('ai')?.checked || false);
-    }
-    
-    // Combine category filter with custom filter
-    // In the form submission handler, update how filters are combined:
-    // Combine category filter with custom filter
-    let finalFilter = '';
-
-    // Start with category filter
-    if (categoryFilter) {
-        finalFilter = categoryFilter;
-    }
-
-    // Add site exclusions from the site input
-    const siteExclusions = document.getElementById('site').value;
-    if (siteExclusions) {
-        const sites = siteExclusions.split(',').filter(s => s.trim());
-        if (sites.length > 0) {
-            const siteExclusionFilter = sites.length === 1 ? 
-                `name!=${sites[0]}` : 
-                `name!=${sites.join('|')}`;
-            
-            if (finalFilter) {
-                finalFilter += ` and ${siteExclusionFilter}`;
+        if (verboseChecked) {
+            console.log('=== VERBOSE FORM SUBMISSION DEBUG ===');
+        }
+        
+        // Validate at least one search field is filled
+        const searchType = document.querySelector('.search-type-btn.active').dataset.type;
+        let isValid = false;
+        
+        if (searchType === 'username') {
+            const usernames = document.getElementById('usernames').value.trim();
+            if (usernames) {
+                isValid = true;
+                if (verboseChecked) {
+                    console.log('Search type:', searchType);
+                    console.log('Username search:', usernames);
+                }
             } else {
-                finalFilter = siteExclusionFilter;
+                alert('Please enter at least one username');
             }
-        }
-    }
-
-    // Finally, append any custom filter
-    if (customFilter && customFilter.trim()) {
-        if (finalFilter) {
-            finalFilter += ` and ${customFilter.trim()}`;
         } else {
-            finalFilter = customFilter.trim();
-        }
-    }
-
-    if (verboseChecked) {
-        console.log('Final combined filter:', finalFilter);
-    }
-    
-    // Update all filter-related fields
-    document.getElementById('includeCategories').value = includeCategories;
-    document.getElementById('excludeCategories').value = excludeCategories;
-    document.getElementById('categoryFilter').value = categoryFilter;
-    document.getElementById('filter').value = finalFilter;
-    
-    if (tagsSelect) {
-        Array.from(tagsSelect.options).forEach(option => {
-            option.selected = false;
-        });
-        
-        selectedTags.forEach(tagValue => {
-            const option = tagsSelect.querySelector(`option[value="${tagValue}"]`);
-            if (option) {
-                option.selected = true;
+            const emails = document.getElementById('emails').value.trim();
+            if (emails) {
+                isValid = true;
+                if (verboseChecked) {
+                    console.log('Search type:', searchType);
+                    console.log('Email search:', emails);
+                }
+            } else {
+                alert('Please enter at least one email address');
             }
-        });
-    }
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            return;
+        }
+        
+        // Force update of category filter before submission
+        if (verboseChecked) {
+            console.log('=== Form Submission Debug ===');
+        } else {
+            console.log('=== Form Submission Debug ===');
+        }
+        
+        // Get category filter values
+        const includeCategories = document.getElementById('includeCategories').value;
+        const excludeCategories = document.getElementById('excludeCategories').value;
+        const categoryFilter = document.getElementById('categoryFilter').value;
+        const customFilter = document.getElementById('filter').value;
+        
+        let selectedTags = [];
+        
+        const tagsSelect = document.getElementById('tags');
+        if (tagsSelect) {
+            selectedTags = Array.from(tagsSelect.selectedOptions).map(opt => opt.value);
+        }
+        
+        if (selectedTags.length === 0) {
+            const selectedTagElements = document.querySelectorAll('.tag.selected');
+            selectedTags = Array.from(selectedTagElements).map(el => el.dataset.value);
+        }
+        
+        if (verboseChecked) {
+            console.log('Include categories:', includeCategories);
+            console.log('Exclude categories:', excludeCategories);
+            console.log('Generated category filter:', categoryFilter);
+            console.log('Custom filter:', customFilter);
+            console.log('Selected tags:', selectedTags);
+            console.log('Verbose mode enabled:', verboseChecked);
+            
+            // Log other form values
+            console.log('Max sites:', document.getElementById('top_sites').value);
+            console.log('Timeout:', document.getElementById('timeout').value);
+            console.log('Concurrent requests:', document.getElementById('max_concurrent').value);
+            console.log('Search all sites:', document.getElementById('all_sites').checked);
+            console.log('Exclude NSFW:', document.getElementById('no_nsfw').checked);
+            console.log('Save CSV:', document.getElementById('save_csv').checked);
+            console.log('Save JSON:', document.getElementById('save_json').checked);
+            console.log('Save PDF:', document.getElementById('save_pdf').checked);
+            console.log('AI analysis:', document.getElementById('ai')?.checked || false);
+        }
+        
+        // Combine category filter with custom filter
+        let finalFilter = '';
+
+        // Start with category filter from categoryFilterInput (already has correct format)
+        if (categoryFilter) {
+            finalFilter = categoryFilter;
+        }
+
+        // Add site exclusions from the site input - each as separate condition
+        const siteExclusions = document.getElementById('site').value;
+        if (siteExclusions) {
+            const sites = siteExclusions.split(',').filter(s => s.trim());
+            if (sites.length > 0) {
+                // Create separate condition for each excluded site
+                const siteExclusionConditions = sites.map(site => `name!=${site}`);
+                const siteExclusionFilter = siteExclusionConditions.join(' and ');
+                
+                if (finalFilter) {
+                    finalFilter += ` and ${siteExclusionFilter}`;
+                } else {
+                    finalFilter = siteExclusionFilter;
+                }
+            }
+        }
+
+        // Finally, append any custom filter
+        if (customFilter && customFilter.trim()) {
+            if (finalFilter) {
+                finalFilter += ` and ${customFilter.trim()}`;
+            } else {
+                finalFilter = customFilter.trim();
+            }
+        }
+
+        if (verboseChecked) {
+            console.log('Final combined filter:', finalFilter);
+        }
+        
+        // Update all filter-related fields
+        document.getElementById('includeCategories').value = includeCategories;
+        document.getElementById('excludeCategories').value = excludeCategories;
+        document.getElementById('categoryFilter').value = categoryFilter;
+        document.getElementById('filter').value = finalFilter;
+        
+        if (tagsSelect) {
+            Array.from(tagsSelect.options).forEach(option => {
+                option.selected = false;
+            });
+            
+            selectedTags.forEach(tagValue => {
+                const option = tagsSelect.querySelector(`option[value="${tagValue}"]`);
+                if (option) {
+                    option.selected = true;
+                }
+            });
+        }
+        
+        if (verboseChecked) {
+            console.log('Form fields updated. Submitting...');
+            console.log('=== END VERBOSE DEBUG ===');
+        } else {
+            console.log('Form fields updated. Submitting...');
+        }
+        
+        // Allow form submission to proceed
+    });
     
-    if (verboseChecked) {
-        console.log('Form fields updated. Submitting...');
-        console.log('=== END VERBOSE DEBUG ===');
-    } else {
-        console.log('Form fields updated. Submitting...');
-    }
-    
-    // Allow form submission to proceed
-});
     // Toggle frequency preview
     document.getElementById('enable_frequency').addEventListener('change', function() {
         const preview = document.getElementById('frequencyPreview');
