@@ -1532,9 +1532,6 @@ def create_session_folder(username, search_type):
 
 def process_search_task(search_items, search_type, options, timestamp, enable_frequency=False):
     try:
-        # Add start time to job tracking
-        background_jobs[timestamp]['start_time'] = time.time()
-        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -1896,7 +1893,6 @@ def search():
         
         background_jobs[timestamp] = {
             'completed': False,
-            'start_time': time.time(),  # Add this line
             'thread': Thread(
                 target=process_search_task,
                 args=(search_items, search_type, options, timestamp, enable_frequency)
@@ -2214,87 +2210,6 @@ def get_site_frequency(site_name):
         
     except Exception as e:
         return {'error': str(e), 'status': 'error'}
-
-@app.route('/api/check-search/<search_id>')
-def check_search(search_id):
-    """Check the status of a search job"""
-    try:
-        # Check if search exists in background jobs
-        if search_id not in background_jobs:
-            return jsonify({
-                'status': 'not_found',
-                'message': 'Search ID not found'
-            }), 404
-        
-        job = background_jobs[search_id]
-        
-        # If job is completed, check results
-        if job.get('completed', False):
-            result = job_results.get(search_id)
-            
-            if not result:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'No results available'
-                })
-            
-            if result.get('status') == 'completed':
-                return jsonify({
-                    'status': 'complete',
-                    'message': 'Search completed successfully',
-                    'results_available': True,
-                    'total_items': len(result.get('search_items', [])),
-                    'individual_reports': len(result.get('individual_reports', []))
-                })
-            elif result.get('status') == 'failed':
-                return jsonify({
-                    'status': 'error',
-                    'message': result.get('error', 'Search failed'),
-                    'results_available': False
-                })
-            else:
-                return jsonify({
-                    'status': 'processing',
-                    'progress': 95,
-                    'message': 'Finishing up...'
-                })
-        
-        # Job is still running, estimate progress
-        # This is a rough estimate - you could make it more accurate if you track progress
-        total_estimated_time = 180  # 3 minutes max
-        elapsed_time = 0
-        
-        # Calculate elapsed time if we have start time
-        if 'start_time' in job:
-            elapsed_time = time.time() - job['start_time']
-        else:
-            # Use a fallback based on when the job was created
-            job['start_time'] = time.time()
-            elapsed_time = 0
-        
-        progress = min(int((elapsed_time / total_estimated_time) * 100), 95)
-        
-        if progress < 25:
-            message = "Starting search..."
-        elif progress < 50:
-            message = "Gathering site data..."
-        elif progress < 75:
-            message = "Checking sites..."
-        else:
-            message = "Processing results..."
-        
-        return jsonify({
-            'status': 'processing',
-            'progress': progress,
-            'message': message,
-            'elapsed_time': int(elapsed_time)
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Error checking status: {str(e)}'
-        }), 500
 
 @app.route('/health')
 def health():

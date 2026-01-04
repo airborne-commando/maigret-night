@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark light">
     <title>Blackbird Web Interface</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -57,62 +56,21 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Update the script section in base.html -->
     <script>
-    // Load theme from localStorage on page load
-    function loadTheme() {
-        const html = document.documentElement;
-        const themeToggle = document.getElementById('theme-toggle');
-        const icon = themeToggle.querySelector('i');
-        
-        // Get saved theme or default to dark
-        const savedTheme = localStorage.getItem('blackbird-theme') || 'dark';
-        
-        // Apply the saved theme
-        html.setAttribute('data-bs-theme', savedTheme);
-        
-        // Update the button state
-        if (savedTheme === 'dark') {
-            icon.className = 'fas fa-moon';
-            themeToggle.classList.replace('btn-outline-dark', 'btn-outline-light');
-        } else {
-            icon.className = 'fas fa-sun';
-            themeToggle.classList.replace('btn-outline-light', 'btn-outline-dark');
-        }
-    }
-
-    // Theme toggle handler
-    function setupThemeToggle() {
-        const themeToggle = document.getElementById('theme-toggle');
-        
-        themeToggle.addEventListener('click', function () {
+        document.getElementById('theme-toggle').addEventListener('click', function () {
             const html = document.documentElement;
             const icon = this.querySelector('i');
-            const currentTheme = html.getAttribute('data-bs-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            // Apply new theme
-            html.setAttribute('data-bs-theme', newTheme);
-            
-            // Update button
-            if (newTheme === 'dark') {
-                icon.className = 'fas fa-moon';
-                this.classList.replace('btn-outline-dark', 'btn-outline-light');
-            } else {
+            if (html.getAttribute('data-bs-theme') === 'dark') {
+                html.setAttribute('data-bs-theme', 'light');
                 icon.className = 'fas fa-sun';
                 this.classList.replace('btn-outline-light', 'btn-outline-dark');
+            } else {
+                html.setAttribute('data-bs-theme', 'dark');
+                icon.className = 'fas fa-moon';
+                this.classList.replace('btn-outline-dark', 'btn-outline-light');
             }
-            
-            // Save to localStorage
-            localStorage.setItem('blackbird-theme', newTheme);
         });
-    }
-
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        loadTheme();
-        setupThemeToggle();
-    });
     </script>
 </body>
 
