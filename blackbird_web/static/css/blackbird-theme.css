@@ -1,7 +1,25 @@
 
 /* blackbird-theme.css - Updated with missing interactive element styles */
 /* Dark Theme Styles for Blackbird Web Interface */
+/* Add to the very top of blackbird-theme.css */
+/* Prevent flash of unstyled content */
+:root {
+    color-scheme: dark light;
+}
 
+/* Ensure theme is applied immediately */
+body {
+    visibility: visible !important;
+}
+
+/* Add smooth transitions for theme switching */
+* {
+    transition: background-color 0.3s ease, 
+                border-color 0.3s ease, 
+                color 0.3s ease,
+                fill 0.3s ease,
+                stroke 0.3s ease;
+}
 :root[data-bs-theme="dark"] {
   /* Bootstrap overrides */
   --bs-body-bg: #212529;

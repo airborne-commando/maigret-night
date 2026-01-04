@@ -9,13 +9,14 @@
     
     <h2 class="mb-3">Search in Progress...</h2>
     
-    <p class="lead mb-4">
+    <p class="lead mb-4" id="status-message">
         Your OSINT search is being processed in the background.
     </p>
     
     <div class="progress-container">
         <div class="progress" style="height: 10px;">
             <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 id="progress-bar"
                  style="width: 75%; background-color: #3949ab;"></div>
         </div>
         <div class="progress-text">
@@ -29,7 +30,7 @@
         <h6><i class="fas fa-info-circle"></i> What's happening?</h6>
         <p class="mb-0 small">
             Blackbird is checking hundreds of sites for the provided {{ search_type or 'information' }}. 
-            This page will automatically refresh and show results when complete.
+            This page will automatically show results when complete.
         </p>
     </div>
     
@@ -45,8 +46,7 @@
             Search ID: {{ timestamp }} 
         </small>
     </p>
-    
-    <!-- 添加当前时间显示区域 -->
+
     <div class="current-time-display" id="currentTime">
         <small><i class="fas fa-clock"></i> Started at: Loading...</small>
     </div>
@@ -59,7 +59,7 @@
 </div>
 
 <script>
-// 设置当前时间
+// Update current time display
 function updateCurrentTime() {
     const now = new Date();
     const timeString = now.toLocaleTimeString();
@@ -68,34 +68,103 @@ function updateCurrentTime() {
         `<small><i class="fas fa-clock"></i> Started at: ${dateString} ${timeString}</small>`;
 }
 
-// 页面加载时更新当前时间
 updateCurrentTime();
 
-// Auto-refresh the page every 3 seconds to check completion
-let refreshCount = 0;
-const maxRefreshes = 60; // 3 minutes max
-
-function checkAndRefresh() {
-    refreshCount++;
+// Check search status
+async function checkSearchStatus() {
+    const searchId = "{{ timestamp }}"; // Or however you're tracking the search ID
+    const maxChecks = 180; // 3 minutes at 1-second intervals
+    let checkCount = 0;
     
-    if (refreshCount >= maxRefreshes) {
-        // Stop refreshing and show timeout message
-        document.querySelector('.lead').textContent = 'Search is taking longer than expected...';
-        document.querySelector('.progress-bar').style.width = '90%';
-        return;
+    const progressBar = document.getElementById('progress-bar');
+    const statusMessage = document.getElementById('status-message');
+    
+    async function performCheck() {
+        checkCount++;
+        
+        // Update progress (pseudo-progress for UX)
+        const progress = 75 + (checkCount / maxChecks) * 20;
+        progressBar.style.width = `${Math.min(progress, 95)}%`;
+        
+        try {
+            // First, try to check if the search is complete
+            const response = await fetch(`/api/check-search/${searchId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(5000) // 5 second timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'complete') {
+                // Redirect to results page
+                window.location.href = `/results/${searchId}`;
+                return true;
+            } else if (data.status === 'error') {
+                statusMessage.textContent = 'Search encountered an error. Please try again.';
+                statusMessage.className = 'lead mb-4 text-danger';
+                progressBar.classList.remove('progress-bar-animated');
+                return true;
+            } else if (data.status === 'processing') {
+                // Continue checking
+                if (data.progress) {
+                    progressBar.style.width = `${data.progress}%`;
+                }
+                statusMessage.textContent = data.message || 'Processing search...';
+                return false;
+            }
+        } catch (error) {
+            if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+                // This is the expected timeout - simulate raising asyncio.TimeoutError
+                console.log('Check timeout, will retry...');
+                // Simulate the Python error message you wanted
+                console.log('raise asyncio.TimeoutError from exc_val');
+                return false; // Continue checking
+            } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                // Network error, server might be down
+                statusMessage.textContent = 'Connection lost. Trying to reconnect...';
+                return false;
+            } else {
+                console.error('Error checking status:', error);
+                // For other errors, continue checking
+                return false;
+            }
+        }
+        
+        // If we've reached max checks, show timeout
+        if (checkCount >= maxChecks) {
+            statusMessage.textContent = 'Search is taking longer than expected. Still processing in background...';
+            progressBar.style.width = '95%';
+            // Optionally, suggest manual refresh
+            setTimeout(() => {
+                statusMessage.innerHTML = 
+                    'Still processing... <button class="btn btn-sm btn-outline-primary ms-2" onclick="window.location.reload()">Check Now</button>';
+            }, 10000);
+            return true;
+        }
+        
+        return false;
     }
     
-    // Update progress bar (pseudo-progress)
-    const progress = 75 + (refreshCount / maxRefreshes) * 20;
-    document.querySelector('.progress-bar').style.width = Math.min(progress, 95) + '%';
-    
-    // Refresh page
-    setTimeout(function() {
-        window.location.reload();
-    }, 3000);
+    // Start checking
+    while (true) {
+        const shouldStop = await performCheck();
+        if (shouldStop) {
+            break;
+        }
+        
+        // Wait 1 second before next check
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
 }
 
-// Start the refresh cycle
-checkAndRefresh();
+// Start checking when page loads
+document.addEventListener('DOMContentLoaded', checkSearchStatus);
 </script>
 {% endblock %}
