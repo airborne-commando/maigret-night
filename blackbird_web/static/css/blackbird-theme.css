@@ -1,4 +1,3 @@
-
 /* blackbird-theme.css - Updated with missing interactive element styles */
 /* Dark Theme Styles for Blackbird Web Interface */
 /* Add to the very top of blackbird-theme.css */
@@ -54,13 +53,15 @@ body {
 
 /* Light Theme Overrides */
 :root[data-bs-theme="light"] {
-  --bs-body-bg: #f8f9fa;
+  /* Bootstrap overrides */
+  --bs-body-bg: #e9ecef; /* Darker light theme background */
   --bs-body-color: #212529;
   --bs-border-color: #dee2e6;
   --bs-border-color-translucent: rgba(0, 0, 0, 0.1);
   --bs-secondary-color: #6c757d;
-  --bs-tertiary-bg: #e9ecef;
+  --bs-tertiary-bg: #f8f9fa; /* Lighter for contrast against darker body */
   
+  /* Custom colors */
   --blackbird-primary: #283593;
   --blackbird-secondary: #312e2e;
   --blackbird-bttn-bg: #000000;
@@ -69,6 +70,14 @@ body {
   --blackbird-gradient: #000000 100%;
   --blackbird-text-gradient: #ffffff 100%;
   --blackbird-footer-bg: rgba(248, 249, 250, 0.8);
+  
+  /* Section backgrounds for light theme */
+  --section-header-bg: #f8f9fa;
+  --section-header-hover: #e9ecef;
+  --section-content-bg: #ffffff;
+  --json-display-bg: #f8f9fa;
+  --voter-container-border: #dee2e6;
+  --results-preview-bg: #f8f9fa;
   
   /* Light theme category states */
   --category-included-bg: #41ab39;
@@ -81,6 +90,16 @@ body {
   --category-excluded-selected-bg: #d32f2f;
   --category-excluded-selected-color: white;
   --category-excluded-selected-border: #d32f2f;
+}
+
+/* Dark theme section backgrounds */
+:root[data-bs-theme="dark"] {
+  --section-header-bg: #2b3035;
+  --section-header-hover: #343a40;
+  --section-content-bg: #212529;
+  --json-display-bg: #2b3035;
+  --voter-container-border: #495057;
+  --results-preview-bg: #24272b70;
 }
 
 /* Base Layout */
@@ -431,13 +450,6 @@ body {
 
 .section-content.show {
   display: block;
-}
-
-.chevron::after {
-  content: '▼';
-  margin-left: 8px;
-  transition: transform 0.2s;
-  font-size: 0.9em;
 }
 
 .chevron.collapsed::after {
@@ -996,9 +1008,9 @@ body {
     opacity: 0.5;
 }
 
-* Voter Tool Specific Styles */
+/* Voter Tool Specific Styles */
 .voter-tool-container {
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--voter-container-border);
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     margin-bottom: 20px;
@@ -1032,10 +1044,10 @@ body {
 
 .results-preview {
     min-height: 60px;
-    border: 1px dashed #dee2e6;
+    border: 1px dashed var(--voter-container-border);
     border-radius: 4px;
     padding: 10px;
-    background-color: #24272b70;
+    background-color: var(--results-preview-bg);
 }
 
 #searchHistoryList .list-group-item {
@@ -1061,18 +1073,18 @@ body {
 .section-header {
     cursor: pointer;
     padding: 10px 15px;
-    background-color: #f8f9fa;
+    background-color: var(--section-header-bg);
     border-radius: 5px;
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--bs-border-color);
     transition: all 0.3s ease;
 }
 
 .section-header:hover {
-    background-color: #e9ecef;
+    background-color: var(--section-header-hover);
 }
 
 .section-header h5, .section-header h6 {
@@ -1081,10 +1093,10 @@ body {
 
 .section-content {
     padding: 15px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--bs-border-color);
     border-top: none;
     border-radius: 0 0 5px 5px;
-    background-color: #fff;
+    background-color: var(--section-content-bg);
     display: block;
 }
 
@@ -1096,8 +1108,8 @@ body {
     display: inline-block;
     width: 12px;
     height: 12px;
-    border-right: 2px solid #666;
-    border-bottom: 2px solid #666;
+    border-right: 2px solid var(--bs-secondary-color);
+    border-bottom: 2px solid var(--bs-secondary-color);
     transform: rotate(45deg);
     transition: transform 0.3s ease;
 }
@@ -1110,12 +1122,71 @@ body {
     max-height: 400px;
     overflow-y: auto;
     font-size: 12px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background-color: var(--json-display-bg);
+    border: 1px solid var(--bs-border-color);
 }
 
 .settings-json-display pre {
     white-space: pre-wrap;
     word-wrap: break-word;
     margin: 0;
+}
+
+/* BreachVIP Styles */
+.breachvip-search-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    padding: 20px;
+    color: white;
+    margin-bottom: 20px;
+}
+
+.breachvip-search-card h5 {
+    color: white;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 10px;
+}
+
+.breachvip-search-card .alert {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.breachvip-search-card .form-label {
+    color: white;
+    font-weight: 500;
+}
+
+.breachvip-search-card .form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.breachvip-search-card .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.breachvip-search-card .form-text {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.breachvip-search-card .btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.breachvip-search-card .btn-danger:hover {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+}
+
+.breachvip-results .card {
+    background-color: rgba(0, 0, 0, 0.95);
+    border: none;
+}
+
+.breachvip-results .card-header {
+    background-color: #343a40;
 }
