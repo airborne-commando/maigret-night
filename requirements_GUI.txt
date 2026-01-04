@@ -3,7 +3,6 @@ requests
 stem 
 PyQt6
 Flask==2.3.3
-aiohttp==3.8.5
 chardet==5.1.0
 nest-asyncio==1.5.8
 requests==2.31.0
