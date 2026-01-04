@@ -1035,7 +1035,7 @@ body {
     border: 1px dashed #dee2e6;
     border-radius: 4px;
     padding: 10px;
-    background-color: #24272b70;
+    background-color: #00000085;
 }
 
 #searchHistoryList .list-group-item {
@@ -1055,4 +1055,35 @@ body {
 .load-search-btn {
     font-size: 0.75rem;
     padding: 2px 8px;
+}
+
+/* Button styles for voter tool */
+#checkVoterStatus {
+    font-weight: 600;
+}
+
+#autoFillSample {
+    border-color: #000;
+    color: #000;
+}
+
+#clearVoterForm {
+    border-color: #6f42c1;
+    color: #6f42c1;
+}
+
+#saveVoterData {
+    border-color: #fd7e14;
+    color: #fd7e14;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .voter-tool-container .card-body {
+        padding: 15px;
+    }
+    
+    .d-grid.gap-2 {
+        gap: 8px !important;
+    }
 }
