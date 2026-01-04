@@ -2267,3 +2267,207 @@ function loadSavedSearches() {
 // Make functions available globally
 window.setupVoterTool = setupVoterTool;
 window.loadSavedSearches = loadSavedSearches;
+
+// Add this to your main.js or in a script tag
+
+// BreachVIP API configuration
+const BREACHVIP_API_URL = 'https://breach.vip/api/search'; // Adjust if different endpoint
+const RATE_LIMIT = 15000; // 15 seconds minimum between requests (15 RPM = 1 every 4 seconds)
+
+let lastBreachRequest = 0;
+
+// Function to check rate limit
+function checkRateLimit() {
+    const now = Date.now();
+    if (now - lastBreachRequest < RATE_LIMIT) {
+        const waitTime = Math.ceil((RATE_LIMIT - (now - lastBreachRequest)) / 1000);
+        throw new Error(`Rate limited. Please wait ${waitTime} seconds before trying again.`);
+    }
+    lastBreachRequest = now;
+}
+
+// Replace the searchBreachVIP function with this:
+async function searchBreachVIP(searchData) {
+    try {
+        const now = Date.now();
+        const waitTime = checkRateLimit();
+        
+        if (waitTime > 0) {
+            throw new Error(`Rate limited. Please wait ${waitTime} seconds before trying again.`);
+        }
+        
+        const response = await fetch('/api/breachvip/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(searchData)
+        });
+        
+        if (!response.ok) {
+            if (response.status === 429) {
+                const data = await response.json();
+                throw new Error(data.error || 'Rate limited. Please wait before trying again.');
+            }
+            throw new Error(`API error: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('BreachVIP search error:', error);
+        throw error;
+    }
+}
+
+// Update the rate limit check
+function checkRateLimit() {
+    const now = Date.now();
+    const lastRequest = localStorage.getItem('breachvip_last_request') || 0;
+    const waitTime = Math.ceil((RATE_LIMIT - (now - lastRequest)) / 1000);
+    
+    if (now - lastRequest < RATE_LIMIT) {
+        return waitTime;
+    }
+    
+    localStorage.setItem('breachvip_last_request', now);
+    return 0;
+}
+// Function to format breach results
+function formatBreachResults(results) {
+    if (!results || results.length === 0) {
+        return '<div class="alert alert-success">No breaches found for this search term.</div>';
+    }
+    
+    let html = `<p class="text-muted">Found ${results.length} breach record(s)</p>`;
+    html += '<div class="list-group">';
+    
+    results.forEach((result, index) => {
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">Source: ${result.source || 'Unknown'}</h6>
+                    <small class="text-muted">#${index + 1}</small>
+                </div>
+                <p class="mb-1">
+                    <strong>Categories:</strong> ${Array.isArray(result.categories) ? result.categories.join(', ') : result.categories}
+                </p>
+                ${result.email ? `<small><strong>Email:</strong> ${result.email}</small><br>` : ''}
+                ${result.username ? `<small><strong>Username:</strong> ${result.username}</small><br>` : ''}
+                ${result.password ? `<small><strong>Password:</strong> ${result.password}</small><br>` : ''}
+                ${result.name ? `<small><strong>Name:</strong> ${result.name}</small><br>` : ''}
+                ${result.domain ? `<small><strong>Domain:</strong> ${result.domain}</small>` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+// Event listener for BreachVIP search button
+document.addEventListener('DOMContentLoaded', function() {
+    const breachSearchBtn = document.getElementById('breachvip_search_btn');
+    const breachClearBtn = document.getElementById('breachvip_clear_btn');
+    const breachResults = document.getElementById('breachvip_results');
+    const breachResultsContent = document.getElementById('breachvip_results_content');
+    const breachLoading = document.getElementById('breachvip_loading');
+    
+    if (breachSearchBtn) {
+        breachSearchBtn.addEventListener('click', async function() {
+            const username = document.getElementById('breachvip_username').value.trim();
+            const email = document.getElementById('breachvip_email').value.trim();
+            const wildcard = document.getElementById('breachvip_wildcard').checked;
+            const caseSensitive = document.getElementById('breachvip_case_sensitive').checked;
+            
+            if (!username && !email) {
+                alert('Please enter a username or email to search.');
+                return;
+            }
+            
+            // Show loading
+            breachResults.style.display = 'block';
+            breachResultsContent.innerHTML = '';
+            breachLoading.style.display = 'block';
+            
+            try {
+                let searchTerm = '';
+                let fields = [];
+                
+                // Determine what to search for
+                if (username && email) {
+                    // If both provided, search for username first
+                    searchTerm = username;
+                    fields = ['username'];
+                } else if (username) {
+                    searchTerm = username;
+                    fields = ['username'];
+                } else if (email) {
+                    searchTerm = email;
+                    fields = ['email'];
+                }
+                
+                // Validate search term for wildcards
+                if (wildcard && (searchTerm.startsWith('*') || searchTerm.startsWith('?'))) {
+                    throw new Error('Wildcard searches cannot start with * or ?');
+                }
+                
+                // Prepare search request
+                const searchData = {
+                    term: searchTerm,
+                    fields: fields,
+                    wildcard: wildcard,
+                    case_sensitive: caseSensitive,
+                    categories: null // Only minecraft supported for now
+                };
+                
+                // Make API call
+                const result = await searchBreachVIP(searchData);
+                
+                // Display results
+                breachResultsContent.innerHTML = formatBreachResults(result.results);
+                
+                // If we have both username and email, search for email too
+                if (username && email) {
+                    breachResultsContent.innerHTML += '<hr>';
+                    breachResultsContent.innerHTML += '<h6>Email Search Results:</h6>';
+                    
+                    const emailSearchData = {
+                        term: email,
+                        fields: ['email'],
+                        wildcard: wildcard,
+                        case_sensitive: caseSensitive,
+                        categories: null
+                    };
+                    
+                    try {
+                        const emailResult = await searchBreachVIP(emailSearchData);
+                        breachResultsContent.innerHTML += formatBreachResults(emailResult.results);
+                    } catch (emailError) {
+                        breachResultsContent.innerHTML += `<div class="alert alert-danger">Email search failed: ${emailError.message}</div>`;
+                    }
+                }
+                
+            } catch (error) {
+                breachResultsContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            } finally {
+                breachLoading.style.display = 'none';
+            }
+        });
+    }
+    
+    // Clear button
+    if (breachClearBtn) {
+        breachClearBtn.addEventListener('click', function() {
+            document.getElementById('breachvip_username').value = '';
+            document.getElementById('breachvip_email').value = '';
+            document.getElementById('breachvip_wildcard').checked = false;
+            document.getElementById('breachvip_case_sensitive').checked = false;
+            breachResults.style.display = 'none';
+        });
+    }
+});

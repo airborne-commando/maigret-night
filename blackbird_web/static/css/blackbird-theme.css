@@ -1056,3 +1056,66 @@ body {
     font-size: 0.75rem;
     padding: 2px 8px;
 }
+
+/* Add to your CSS file */
+.section-header {
+    cursor: pointer;
+    padding: 10px 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.section-header:hover {
+    background-color: #e9ecef;
+}
+
+.section-header h5, .section-header h6 {
+    margin: 0;
+}
+
+.section-content {
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    background-color: #fff;
+    display: block;
+}
+
+.section-content:not(.show) {
+    display: none !important;
+}
+
+.chevron {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-right: 2px solid #666;
+    border-bottom: 2px solid #666;
+    transform: rotate(45deg);
+    transition: transform 0.3s ease;
+}
+
+.chevron.collapsed {
+    transform: rotate(-45deg);
+}
+
+.settings-json-display {
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.settings-json-display pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+}

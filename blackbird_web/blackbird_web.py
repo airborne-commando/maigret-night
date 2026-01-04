@@ -2296,6 +2296,74 @@ def check_search(search_id):
             'message': f'Error checking status: {str(e)}'
         }), 500
 
+@app.route('/api/breachvip/search', methods=['POST'])
+def proxy_breachvip_search():
+    """Proxy requests to BreachVIP API to avoid CORS issues"""
+    try:
+        # Get the search data from the request
+        search_data = request.get_json()
+        if not search_data:
+            return jsonify({'error': 'No search data provided'}), 400
+        
+        # Rate limiting check (server-side)
+        client_ip = request.remote_addr
+        rate_limit_key = f'breachvip_rate_limit_{client_ip}'
+        
+        # Check if client made a request recently (15 second cooldown)
+        last_request = app.config.get(rate_limit_key, 0)
+        current_time = time.time()
+        
+        if current_time - last_request < 15:  # 15 seconds
+            wait_time = int(15 - (current_time - last_request))
+            return jsonify({
+                'error': f'Rate limited. Please wait {wait_time} seconds before trying again.',
+                'retry_after': wait_time
+            }), 429
+        
+        # Update rate limit timestamp
+        app.config[rate_limit_key] = current_time
+        
+        # Forward request to BreachVIP API
+        api_url = 'https://breach.vip/api/search'
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Blackbird-Web/1.0'
+        }
+        
+        # Make the request with a timeout
+        response = requests.post(
+            api_url,
+            json=search_data,
+            headers=headers,
+            timeout=30  # 30 second timeout
+        )
+        
+        # Return the response from BreachVIP
+        return jsonify(response.json()), response.status_code
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Request to BreachVIP API timed out'}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'Network error: {str(e)}'}), 502
+    except Exception as e:
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+# Add a cleanup function for old rate limit data
+@app.before_request
+def cleanup_rate_limits():
+    """Clean up old rate limit entries"""
+    current_time = time.time()
+    keys_to_delete = []
+    
+    for key in list(app.config.keys()):
+        if key.startswith('breachvip_rate_limit_'):
+            timestamp = app.config[key]
+            if current_time - timestamp > 300:  # Clean up entries older than 5 minutes
+                keys_to_delete.append(key)
+    
+    for key in keys_to_delete:
+        app.config.pop(key, None)
+
 @app.route('/health')
 def health():
     return {
