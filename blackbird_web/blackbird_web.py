@@ -2399,4 +2399,4 @@ if __name__ == '__main__':
     print(f"Starting server on {host}:{port} (debug: {debug_mode})")
     print(f"Reports folder: {app.config['REPORTS_FOLDER']}")
     
-    app.run(host=host, port=port, debug=True)
+    app.run(host=host, port=port, debug=False)
