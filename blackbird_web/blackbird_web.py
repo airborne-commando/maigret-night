@@ -1030,7 +1030,26 @@ def init_frequency_analyzer():
     except Exception as e:
         return False
 
-app.config["REPORTS_FOLDER"] = os.path.abspath('../results/')
+# Get the directory containing this script file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Navigate up to find blackbird directory (handles any depth)
+blackbird_dir = None
+current = script_dir
+while current != os.path.dirname(current):  # Stop at filesystem root
+    potential_blackbird = os.path.join(current, "blackbird")
+    if os.path.exists(potential_blackbird) and os.path.isdir(potential_blackbird):
+        blackbird_dir = potential_blackbird
+        break
+    current = os.path.dirname(current)
+
+if blackbird_dir is None:
+    # Fallback: create blackbird in script's parent directory
+    blackbird_dir = os.path.join(os.path.dirname(script_dir), "blackbird")
+    os.makedirs(blackbird_dir, exist_ok=True)
+
+# Set reports folder inside blackbird
+app.config["REPORTS_FOLDER"] = os.path.join(blackbird_dir, "results")
 os.makedirs(app.config["REPORTS_FOLDER"], exist_ok=True)
 
 background_jobs = {}
