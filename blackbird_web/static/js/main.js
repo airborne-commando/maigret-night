@@ -113,7 +113,7 @@ function getCurrentSettings() {
         save_json: document.getElementById('save_json')?.checked || true,
         save_pdf: document.getElementById('save_pdf')?.checked || false,
         verbose: document.getElementById('verbose')?.checked || false,
-        enable_frequency: document.getElementById('enable_frequency')?.checked || false,
+        enable_frequency: document.getElementById('enable_frequency')?.checked || true,
         show_common_sites: document.getElementById('show_common_sites')?.checked || true
     };
     
@@ -471,7 +471,7 @@ function resetToDefaultSettings() {
     if (document.getElementById('save_json')) document.getElementById('save_json').checked = true;
     if (document.getElementById('save_pdf')) document.getElementById('save_pdf').checked = false;
     if (document.getElementById('verbose')) document.getElementById('verbose').checked = false;
-    if (document.getElementById('enable_frequency')) document.getElementById('enable_frequency').checked = false;
+    if (document.getElementById('enable_frequency')) document.getElementById('enable_frequency').checked = true;
     if (document.getElementById('show_common_sites')) document.getElementById('show_common_sites').checked = true;
     
     // Reset tags
