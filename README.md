@@ -27,6 +27,10 @@ Then run python
 
     blackbird_web.py
 
+Full command:
+
+    git clone https://github.com/p1ngul1n0/blackbird && cd blackbird && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && git clone https://github.com/airborne-commando/maigret-night.git && pip install -r maigret-night/requirements_GUI.txt && python maigret-night/blackbird_web/blackbird_web.py
+
 **Known false positives**
 
     ok.ru
