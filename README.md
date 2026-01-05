@@ -19,7 +19,13 @@ For crow:
 pip install -r requirements_GUI.txt && pip install -r requirements.txt
 ```
 
-You'll first need to clone blackbird then clone maigret night. Move maigret night into the blackbird dir.
+You'll first need to clone blackbird then clone maigret night.
+
+    git clone https://github.com/p1ngul1n0/blackbird && cd blackbird && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && git clone https://github.com/airborne-commando/maigret-night.git && pip install -r maigret-night/requirements_GUI.txt 
+
+Then run python
+
+    blackbird_web.py
 
 **Known false positives**
 

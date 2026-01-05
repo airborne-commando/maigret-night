@@ -98,9 +98,18 @@ class BlackbirdConfig:
         self.FONT_NAME_BOLD = "Montserrat-Bold"
         self.IMAGES_DIRECTORY = "img"
         self.ai_analysis = None
-        self.USERNAME_list_PATH = self._find_data_file('wmn-data.json')
-        self.EMAIL_list_PATH = self._find_data_file('email-data.json')
-        self.USERNAME_METADATA_list_PATH = self._find_data_file('wmn-metadata.json')
+        
+        # Define URLs for data files
+        self.DATA_FILE_URLS = {
+            'wmn-data.json': 'https://raw.githubusercontent.com/WebBreacher/WhatsMyName/main/wmn-data.json',
+            'email-data.json': 'https://raw.githubusercontent.com/p1ngul1n0/blackbird/main/data/email-data.json',
+            'wmn-metadata.json': 'https://raw.githubusercontent.com/p1ngul1n0/blackbird/main/data/wmn-metadata.json'
+        }
+        
+        # Find or download data files
+        self.USERNAME_list_PATH = self._find_or_download_data_file('wmn-data.json')
+        self.EMAIL_list_PATH = self._find_or_download_data_file('email-data.json')
+        self.USERNAME_METADATA_list_PATH = self._find_or_download_data_file('wmn-metadata.json')
         self.USERNAME_list_URL = "https://raw.githubusercontent.com/WebBreacher/WhatsMyName/main/wmn-data.json"
         self.username_sites = []
         self.email_sites = []
@@ -108,7 +117,10 @@ class BlackbirdConfig:
         self.include_categories = []
         self.exclude_categories = []
     
-    def _find_data_file(self, filename):
+    def _find_or_download_data_file(self, filename):
+        """
+        Find data file locally or download it from the repository
+        """
         possible_locations = [
             os.path.join(CURRENT_DIR, '..', 'blackbird', 'data', filename),
             os.path.join(CURRENT_DIR, 'blackbird', 'data', filename),
@@ -118,16 +130,130 @@ class BlackbirdConfig:
             os.path.join(os.path.expanduser('~'), '.local', 'share', 'blackbird', 'data', filename),
             os.path.join(os.path.expanduser('~'), 'blackbird', 'data', filename),
         ]
+        
+        # Check existing locations first
         for location in possible_locations:
             abs_path = os.path.abspath(location)
             if os.path.exists(abs_path):
+                print(f"Found {filename} at: {abs_path}")
                 return abs_path
-        fallback_path = os.path.join(CURRENT_DIR, 'data', filename)
-        os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
-        if not os.path.exists(fallback_path):
+        
+        # File not found locally, use data directory in current folder
+        data_dir = os.path.join(CURRENT_DIR, 'data')
+        os.makedirs(data_dir, exist_ok=True)
+        local_path = os.path.join(data_dir, filename)
+        
+        # If file doesn't exist locally, try to download it
+        if not os.path.exists(local_path) and filename in self.DATA_FILE_URLS:
+            download_url = self.DATA_FILE_URLS[filename]
+            print(f"Downloading {filename} from {download_url}...")
+            
+            try:
+                # Download the file
+                response = requests.get(download_url, timeout=30)
+                response.raise_for_status()  # Raise an exception for bad status codes
+                
+                # Save the downloaded file
+                with open(local_path, 'wb') as f:
+                    f.write(response.content)
+                
+                print(f"Successfully downloaded {filename} to {local_path}")
+                
+                # Verify it's valid JSON
+                with open(local_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if 'sites' in data:
+                        print(f"Loaded {len(data['sites'])} sites from {filename}")
+                    else:
+                        print(f"Warning: {filename} doesn't contain 'sites' key")
+                
+                return local_path
+                
+            except requests.exceptions.RequestException as e:
+                print(f"Error downloading {filename}: {e}")
+                # Create a minimal valid JSON file
+                with open(local_path, 'w') as f:
+                    json.dump({"sites": [], "updated": datetime.now().isoformat()}, f)
+                print(f"Created minimal {filename} file at {local_path}")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing downloaded {filename}: {e}")
+                # Create a minimal valid JSON file
+                with open(local_path, 'w') as f:
+                    json.dump({"sites": [], "updated": datetime.now().isoformat()}, f)
+                print(f"Created minimal {filename} file at {local_path}")
+            except Exception as e:
+                print(f"Unexpected error with {filename}: {e}")
+                # Create a minimal valid JSON file
+                with open(local_path, 'w') as f:
+                    json.dump({"sites": [], "updated": datetime.now().isoformat()}, f)
+                print(f"Created minimal {filename} file at {local_path}")
+        
+        elif os.path.exists(local_path):
+            print(f"Using existing {filename} at: {local_path}")
+            return local_path
+        else:
+            # Create a minimal valid JSON file
+            with open(local_path, 'w') as f:
+                json.dump({"sites": [], "updated": datetime.now().isoformat()}, f)
+            print(f"Created minimal {filename} file at {local_path}")
+        
+        return local_path
+    
+def _find_data_file(self, filename):
+    possible_locations = [
+        os.path.join(CURRENT_DIR, '..', 'blackbird', 'data', filename),
+        os.path.join(CURRENT_DIR, 'blackbird', 'data', filename),
+        os.path.join(CURRENT_DIR, '..', 'data', filename),
+        os.path.join(CURRENT_DIR, 'data', filename),
+        os.path.join('/usr', 'local', 'share', 'blackbird', 'data', filename),
+        os.path.join(os.path.expanduser('~'), '.local', 'share', 'blackbird', 'data', filename),
+        os.path.join(os.path.expanduser('~'), 'blackbird', 'data', filename),
+    ]
+    
+    # Check existing locations first
+    for location in possible_locations:
+        abs_path = os.path.abspath(location)
+        if os.path.exists(abs_path):
+            return abs_path
+    
+    # File not found locally, try to download it
+    fallback_path = os.path.join(CURRENT_DIR, 'data', filename)
+    os.makedirs(os.path.dirname(fallback_path), exist_ok=True)
+    
+    # Define download URLs for different files
+    download_urls = {
+        'wmn-data.json': 'https://raw.githubusercontent.com/WebBreacher/WhatsMyName/main/wmn-data.json',
+        'email-data.json': 'https://raw.githubusercontent.com/p1ngul1n0/blackbird/main/data/email-data.json',
+        'wmn-metadata.json': 'https://raw.githubusercontent.com/p1ngul1n0/blackbird/main/data/wmn-metadata.json'
+    }
+    
+    if filename in download_urls and not os.path.exists(fallback_path):
+        try:
+            print(f"Downloading {filename} from {download_urls[filename]}...")
+            
+            response = requests.get(download_urls[filename], timeout=30)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            
+            # Save the downloaded file
+            with open(fallback_path, 'wb') as f:
+                f.write(response.content)
+            
+            print(f"Successfully downloaded {filename} to {fallback_path}")
+            
+            # Verify it's valid JSON
+            with open(fallback_path, 'r', encoding='utf-8') as f:
+                json.load(f)  # This will raise an exception if not valid JSON
+            
+            return fallback_path
+            
+        except Exception as e:
+            print(f"Error downloading {filename}: {e}")
+            # Create an empty file as fallback
             with open(fallback_path, 'w') as f:
                 json.dump({"sites": []}, f)
-        return fallback_path
+            print(f"Created empty {filename} file at {fallback_path}")
+    
+    return fallback_path
 
 def find_blackbird_assets():
     possible_asset_locations = [
@@ -1239,87 +1365,146 @@ async def search_username_blackbird(username, config):
         return []
 
 async def search_email_blackbird(email, config):
+    """Email search function using downloaded email-data.json"""
     try:
-        from modules.core.email import verifyEmail
-        from modules.whatsmyname.list_operations import readlist
-        from modules.utils.filter import applyFilters
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Starting email search for: {email}")
+            config.console.print(f"[VERBOSE] Email data file: {config.EMAIL_list_PATH}")
         
-        data = readlist("email", config)
-        sitesToSearch = data["sites"]
-        config.email_sites = applyFilters(sitesToSearch, config)
+        # Load email sites from the downloaded file
+        if not os.path.exists(config.EMAIL_list_PATH):
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Email data file not found!")
+            return []
         
-        async def simple_email_fetch(email, config):
-            import asyncio
-            import aiohttp
+        try:
+            with open(config.EMAIL_list_PATH, 'r', encoding='utf-8') as f:
+                email_data = json.load(f)
             
-            async with aiohttp.ClientSession() as session:
-                tasks = []
-                semaphore = asyncio.Semaphore(config.max_concurrent_requests)
-                total_sites = len(config.email_sites)
-                completed = 0
-                results = []
-                
-                async def check_site_wrapper(site):
-                    nonlocal completed
-                    
-                    from modules.core.email import checkSite
-                    from modules.utils.input import processInput
-                    
-                    if site.get("input_operation") is not None:
-                        email_processed = processInput(email, site["input_operation"], config)
-                        if email_processed is None:
-                            email_processed = email
-                        elif not isinstance(email_processed, str):
-                            email_processed = str(email_processed)
-                    else:
-                        email_processed = email
-                    
-                    url = site["uri_check"].replace("{account}", email_processed)
-                    data = site["data"].replace("{account}", email_processed) if site["data"] else None
-                    headers = site["headers"] if site["headers"] else None
-                    
-                    result = await checkSite(
-                        site=site,
-                        method=site.get("method", "GET"),
-                        url=url,
-                        session=session,
-                        semaphore=semaphore,
-                        config=config,
-                        data=data,
-                        headers=headers,
-                    )
-                    
-                    completed += 1
-                    return result
-                
-                tasks = [check_site_wrapper(site) for site in config.email_sites]
-                
-                for task in asyncio.as_completed(tasks):
-                    result = await task
-                    results.append(result)
-                
-                return {"results": results, "email": email}
+            email_sites = email_data.get("sites", [])
+            
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Loaded {len(email_sites)} email sites")
+            
+        except Exception as e:
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Error loading email data: {e}")
+            return []
         
-        results = await simple_email_fetch(email, config)
+        # Apply filters if any
+        if config.filter:
+            filtered_sites = web_applyFilters(email_sites, config)
+        else:
+            filtered_sites = email_sites
         
-        from modules.utils.filter import filterFoundAccounts
-        found_accounts = [acc for acc in results.get('results', []) if filterFoundAccounts(acc)]
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Checking {len(filtered_sites)} email sites")
         
-        formatted_results = []
-        for account in found_accounts:
-            formatted_account = {
-                "name": account.get("name", "unknown"),
-                "url": account.get("url", "#"),
-                "category": account.get("category", account.get("cat", "unknown")),
-                "status": account.get("status", "UNKNOWN"),
-                "metadata": account.get("metadata")
+        # Check each site
+        do_async_request = create_simple_async_request()
+        
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            
+            for site in filtered_sites:
+                task = asyncio.create_task(check_single_email_site(site, email, session, config, do_async_request))
+                tasks.append(task)
+            
+            results = await asyncio.gather(*tasks)
+            
+            found_accounts = [r for r in results if r.get('status') == 'FOUND']
+            
+            if config.verbose:
+                config.console.print(f"[VERBOSE] Email search completed: {len(found_accounts)} accounts found")
+            
+            return found_accounts
+            
+    except Exception as e:
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Error in email search: {str(e)}")
+            config.console.print(traceback.format_exc())
+        return []
+
+async def check_single_email_site(site, email, session, config, do_async_request):
+    """Check a single email site"""
+    try:
+        # Construct URL
+        url_template = site.get("uri_check", "")
+        if not url_template:
+            return {
+                "name": site.get("name", "unknown"),
+                "url": "#",
+                "category": site.get("cat", "unknown"),
+                "status": "ERROR",
+                "metadata": None
             }
-            formatted_results.append(formatted_account)
         
-        return formatted_results
+        # Replace {account} placeholder with email
+        url = url_template.replace("{account}", email)
+        
+        if config.verbose:
+            config.console.print(f"[VERBOSE] Checking {site.get('name')} at {url}")
+        
+        # Make the request
+        response = await do_async_request("GET", url, session, config)
+        
+        if response is None:
+            if config.verbose:
+                config.console.print(f"[VERBOSE] {site.get('name')}: No response (ERROR)")
+            return {
+                "name": site.get("name", "unknown"),
+                "url": url,
+                "category": site.get("cat", "unknown"),
+                "status": "ERROR",
+                "metadata": None
+            }
+        
+        # Check for account existence using the site's criteria
+        content = response.get("content", "")
+        status_code = response.get("status_code", 0)
+        
+        e_string = site.get("e_string", "")
+        e_code = site.get("e_code", 200)
+        m_string = site.get("m_string", "")
+        m_code = site.get("m_code", 404)
+        
+        account_found = (e_string in content) and (e_code == status_code or e_code == 0)
+        
+        if account_found:
+            account_not_found = (m_string in content) or (m_code == status_code and m_code != e_code)
+            
+            if not account_not_found:
+                if config.verbose:
+                    config.console.print(f"[VERBOSE] {site.get('name')}: FOUND ({status_code})")
+                return {
+                    "name": site.get("name", "unknown"),
+                    "url": response.get("url", url),
+                    "category": site.get("cat", "unknown"),
+                    "status": "FOUND",
+                    "metadata": None
+                }
+        
+        if config.verbose:
+            config.console.print(f"[VERBOSE] {site.get('name')}: NOT FOUND ({status_code})")
+        
+        return {
+            "name": site.get("name", "unknown"),
+            "url": response.get("url", url),
+            "category": site.get("cat", "unknown"),
+            "status": "NOT-FOUND",
+            "metadata": None
+        }
         
     except Exception as e:
-        return []
+        if config.verbose:
+            config.console.print(f"[VERBOSE] {site.get('name')}: Exception - {str(e)}")
+        return {
+            "name": site.get("name", "unknown"),
+            "url": url if 'url' in locals() else "#",
+            "category": site.get("cat", "unknown"),
+            "status": "ERROR",
+            "metadata": None
+        }
 
 def create_web_config(options):
     config = BlackbirdConfig()
