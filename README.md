@@ -27,6 +27,8 @@ Then run python
 
     blackbird_web.py
 
+***YOU MAY HAVE TO RUN THE PYTHON FILE INSIDE THE BLACKBIRD DIR***
+
 **Known false positives**
 
     ok.ru
