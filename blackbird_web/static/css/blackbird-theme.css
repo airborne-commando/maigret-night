@@ -86,7 +86,7 @@ body {
   --blackbird-gradient: linear-gradient(135deg, #3949ab 0%, #283593 100%);
   --blackbird-text-gradient: linear-gradient(90deg, #fff 0%, #696b77 100%);
   --blackbird-footer-bg: rgba(255, 255, 255, 0.9);
-  
+
   /* Section backgrounds for light theme */
   --section-header-bg: #ffffff;
   --section-header-hover: #f3f4f6;
@@ -158,6 +158,12 @@ body {
 .logo {
   height: 40px;
   width: auto;
+}
+
+  
+.btn-outline-light {
+  --bs-btn-color: #6b7280;
+  --bs-btn-border-color: #f8f9fa;
 }
 
 .blackbird-title {
